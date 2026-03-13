@@ -189,7 +189,7 @@ export default function DoctorDashboard() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.8, duration: 0.5 }}
-          className="mt-4 shrink-0 flex items-center justify-between text-[11px] font-semibold text-dark-slate-grey-800 tracking-wide uppercase px-2"
+          className="mt-4 shrink-0 flex items-center justify-between text-[11px] font-semibold text-dark-slate-grey-500 tracking-wide uppercase px-2"
         >
           <span>&copy; 2026 MedFlow AI. All rights reserved.</span>
           <div className="flex gap-6">

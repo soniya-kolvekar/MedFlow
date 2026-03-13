@@ -6,7 +6,7 @@ export default function TopBar() {
     return (
         <header className="flex items-center justify-between pb-6 pt-2 w-full bg-transparent">
             <div className="relative w-96">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-slate-grey-800" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-slate-grey-500" />
                 <input
                     type="text"
                     placeholder="Search patients, records, or symptoms..."
@@ -17,7 +17,7 @@ export default function TopBar() {
             <div className="flex items-center gap-6 text-dark-slate-grey-800">
                 <button className="relative hover:text-dark-slate-grey-500 transition-colors">
                     <Bell className="w-5 h-5" />
-                    <span className="absolute 0 right-0.5 w-2 h-2 bg-red-400 rounded-full border-2 border-ash-grey-900"></span>
+                    <span className="absolute top-0 right-0.5 w-2 h-2 bg-red-400 rounded-full border-2 border-ash-grey-900"></span>
                 </button>
                 <button className="hover:text-dark-slate-grey-500 transition-colors">
                     <HelpCircle className="w-5 h-5" />

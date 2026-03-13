@@ -31,12 +31,14 @@ interface Appointment {
     createdAt: Timestamp;
 }
 
-const STATUS_CONFIG = {
-    pending:   { label: "Pending Review", color: "bg-amber-50 text-amber-600 border-amber-200" },
+const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+    pending:   { label: "Scheduled",       color: "bg-ash-grey-900 text-ash-grey-600 border-ash-grey-800" },
     accepted:  { label: "Accepted",       color: "bg-green-50 text-green-600 border-green-100" },
     rejected:  { label: "Rejected",       color: "bg-red-50 text-red-500 border-red-100" },
     completed: { label: "Completed",      color: "bg-ash-grey-100 text-ash-grey-600 border-ash-grey-200" },
 };
+
+const DEFAULT_STATUS = { label: "Unknown", color: "bg-ash-grey-100 text-ash-grey-600 border-ash-grey-200" };
 
 const REJECTION_REASONS = [
     "Slot no longer available",
@@ -89,7 +91,10 @@ export default function PatientList({ onStartSession }: { onStartSession: (apt: 
         const seed = async () => {
             const q = query(collection(db, "appointments"), where("doctorId", "==", user.uid));
             const snap = await getDocs(q);
-            if (!snap.empty) return;
+            
+            // Only seed if our specific test data is missing
+            const hasNewData = snap.docs.some(d => d.data().patientName === "David Miller");
+            if (hasNewData) return;
 
             const today = new Date();
             const fmt = (d: Date) => d.toISOString().split("T")[0];
@@ -102,6 +107,9 @@ export default function PatientList({ onStartSession }: { onStartSession: (apt: 
                 { patientName: "Vikram Singh", patientEmail: "vikram@demo.com", patientAge: 52, patientGender: "Male", condition: "Post-op Follow-up", notes: "Surgery was 3 weeks ago, sutures need review.", requestedDate: fmt(tomorrow), requestedTime: "09:00", status: "pending" },
                 { patientName: "Sneha Patil", patientEmail: "sneha@demo.com", patientAge: 34, patientGender: "Female", condition: "Dermatitis", notes: "Recurring skin issue.", requestedDate: fmt(dayAfter), requestedTime: "14:00", status: "pending" },
                 { patientName: "Arjun Verma", patientEmail: "arjun@demo.com", patientAge: 61, patientGender: "Male", condition: "Diabetes Management", notes: "HbA1c review and medication adjustment.", requestedDate: fmt(today), requestedTime: "15:30", status: "accepted" },
+                { patientName: "Meera Iyer", patientEmail: "meera@demo.com", patientAge: 42, patientGender: "Female", condition: "Allergic Rhinitis", notes: "Frequent sneezing and congestion.", requestedDate: fmt(today), requestedTime: "16:00", status: "accepted" },
+                { patientName: "David Miller", patientEmail: "david@demo.com", patientAge: 55, patientGender: "Male", condition: "Cardiac Arrhythmia", notes: "Follow-up on recent palpitations.", requestedDate: fmt(tomorrow), requestedTime: "10:00", status: "accepted" },
+                { patientName: "Sarah Wilson", patientEmail: "sarah@demo.com", patientAge: 31, patientGender: "Female", condition: "Migraine Management", notes: "Discussing new medication efficacy.", requestedDate: fmt(today), requestedTime: "17:30", status: "accepted" },
             ];
 
             for (const d of demos) {
@@ -160,12 +168,6 @@ export default function PatientList({ onStartSession }: { onStartSession: (apt: 
                             <p className="text-[10px] font-black text-dark-slate-grey-800 uppercase tracking-widest">
                                 {appointments.length} total
                             </p>
-                            {pendingCount > 0 && (
-                                <span className="flex items-center gap-1.5 text-[10px] font-black text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full uppercase tracking-widest">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                                    {pendingCount} awaiting review
-                                </span>
-                            )}
                         </div>
                     </div>
                 </div>
@@ -183,10 +185,10 @@ export default function PatientList({ onStartSession }: { onStartSession: (apt: 
                         />
                     </div>
                     <div className="flex gap-2">
-                        {(["all", "pending", "accepted", "rejected"] as const).map(f => (
+                        {(["all", "accepted", "rejected", "completed"] as const).map(f => (
                             <button
                                 key={f}
-                                onClick={() => setFilter(f)}
+                                onClick={() => setFilter(f as any)}
                                 className={`px-4 h-12 rounded-2xl text-[11px] font-black uppercase tracking-widest border transition-all ${filter === f ? "bg-dark-slate-grey-500 text-white border-dark-slate-grey-500" : "bg-ash-grey-900 border-ash-grey-800 text-ash-grey-600 hover:border-dark-slate-grey-800"}`}
                             >
                                 {f}
@@ -214,7 +216,7 @@ export default function PatientList({ onStartSession }: { onStartSession: (apt: 
 
                 <AnimatePresence>
                     {filtered.map((apt, idx) => {
-                        const statusCfg = STATUS_CONFIG[apt.status];
+                        const statusCfg = STATUS_CONFIG[apt.status] || DEFAULT_STATUS;
                         const isAccepting = accepting === apt.id;
 
                         return (
@@ -225,7 +227,7 @@ export default function PatientList({ onStartSession }: { onStartSession: (apt: 
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.97 }}
                                 transition={{ delay: idx * 0.04 }}
-                                className={`group p-5 border rounded-3xl transition-all ${apt.status === "pending" ? "border-amber-200 bg-amber-50/30 hover:shadow-md hover:shadow-amber-500/10" : "border-ash-grey-800 bg-white hover:shadow-sm"}`}
+                                className={`group p-5 border border-ash-grey-800 bg-white rounded-3xl transition-all hover:shadow-sm`}
                             >
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                                     {/* Avatar */}

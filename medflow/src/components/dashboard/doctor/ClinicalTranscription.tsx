@@ -39,9 +39,9 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
     const [inputLanguage, setInputLanguage] = useState("en-IN");
     const [targetLanguage, setTargetLanguage] = useState("hi-IN");
     const [aiSummary, setAiSummary] = useState<AISummary>({
-        symptoms: ["Analysis in progress..."],
-        diagnosis: "Awaiting session data",
-        notes: "System is processing the live conversation..."
+        symptoms: [],
+        diagnosis: "",
+        notes: ""
     });
     const [duration, setDuration] = useState(0);
     const audioContextRef = useRef<AudioContext | null>(null);
@@ -347,17 +347,7 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
             <div className="flex items-center justify-between pb-4 border-b border-ash-grey-600/50 mb-6 shrink-0">
                 <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center relative transition-all duration-500 ${isRecording ? 'bg-red-50 text-red-500 shadow-lg shadow-red-200/50' : 'bg-muted-teal-100 text-deep-teal-600'}`}>
-                        {isRecording ? <Activity className="w-6 h-6 animate-pulse" /> : <Mic className="w-6 h-6" />}
-                        <AnimatePresence>
-                            {isRecording && (
-                                <motion.span
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    exit={{ scale: 0 }}
-                                    className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white"
-                                />
-                            )}
-                        </AnimatePresence>
+                        {isRecording ? <Activity className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
                     </div>
                     <div>
                         <h3 className="font-bold text-dark-slate-grey-500 text-lg">
@@ -365,8 +355,8 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
                         </h3>
                         <div className="flex items-center gap-3">
                             <span className="flex items-center gap-1.5 text-xs text-dark-slate-grey-800 font-bold uppercase tracking-wider">
-                                <span className={`w-1.5 h-1.5 rounded-full ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-ash-grey-600'}`} />
-                                {isRecording ? "Live" : "Standby"}
+                                <span className={`w-1.5 h-1.5 rounded-full ${isRecording ? 'bg-deep-teal-500' : 'bg-ash-grey-600'}`} />
+                                {isRecording ? "Active" : "Ready"}
                             </span>
                             <span className="w-1 h-1 bg-ash-grey-300 rounded-full" />
                             <div className="flex flex-col gap-1">
@@ -423,19 +413,7 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
                         Clear History
                     </button>
                     
-                    {isRecording && (
-                        <button
-                            onClick={togglePause}
-                            className={`px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all active:scale-95 ${
-                                isPaused 
-                                ? 'bg-orange-100 text-orange-600 hover:bg-orange-200' 
-                                : 'bg-ash-grey-900 text-dark-slate-grey-800 hover:bg-ash-grey-800'
-                            }`}
-                        >
-                            {isPaused ? <Zap className="w-4 h-4 fill-current" /> : <StopCircle className="w-4 h-4" />}
-                            {isPaused ? "Resume" : "Pause"}
-                        </button>
-                    )}
+                    {/* Pause button removed to simplify the 'in-process' concept */}
 
                     {!isRecording ? (
                         <button
@@ -496,9 +474,8 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
                 {/* AI Summary Sidebar */}
                 <div className="w-72 shrink-0 bg-ash-grey-900/40 rounded-[1.5rem] p-6 border border-ash-grey-800 flex flex-col gap-6 overflow-hidden">
                     <div className="flex items-center gap-2 px-1">
-                        <Zap className="w-4 h-4 text-deep-teal-500 fill-current" />
-                        <h4 className="text-[11px] font-black text-dark-slate-grey-500 uppercase tracking-widest flex-1">Real-time Summary</h4>
-                        <span className={`w-2 h-2 rounded-full animate-pulse ${isRecording ? 'bg-green-500' : 'bg-ash-grey-600'}`} />
+                        <h4 className="text-[11px] font-black text-dark-slate-grey-500 uppercase tracking-widest flex-1">Clinical Summary</h4>
+                        <span className={`w-2 h-2 rounded-full ${isRecording ? 'bg-green-500' : 'bg-ash-grey-600'}`} />
                     </div>
 
                     <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6">
@@ -548,8 +525,8 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
                     >
                         <div className="bg-dark-slate-grey-500 bg-opacity-90 backdrop-blur-md text-white rounded-[1.5rem] p-5 shadow-2xl border border-dark-slate-grey-400/50 ring-4 ring-deep-teal-500/10">
                             <div className="flex items-center gap-2 mb-2">
-                                <span className="w-1.5 h-1.5 bg-red-400 rounded-full animate-ping" />
-                                <p className="text-[10px] font-bold text-ash-grey-800 uppercase tracking-widest">Live Analysis</p>
+                                <span className="w-1.5 h-1.5 bg-deep-teal-500 rounded-full" />
+                                <p className="text-[10px] font-bold text-ash-grey-800 uppercase tracking-widest">Transcription</p>
                             </div>
                             <p className="font-bold text-lg leading-tight">
                                 "{liveCaption}"
@@ -573,11 +550,6 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
                         </div>
                     </div>
                 </div>
-                {isPaused && (
-                    <span className="bg-orange-500 text-white px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest animate-pulse shadow-lg shadow-orange-500/20">
-                        Session Paused
-                    </span>
-                )}
             </div>
         </div>
     );

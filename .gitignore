@@ -3,6 +3,7 @@ backend/venv/
 backend/__pycache__/
 backend/.env
 backend/*.pyc
+backend/site-packages/
 
 # Frontend (medflow)
 medflow/node_modules/

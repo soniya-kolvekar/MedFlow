@@ -57,7 +57,7 @@ export default function Sidebar({
                 : "text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400"
               }`}
             >
-              <Icon className={`w-5 h-5 ${isActive ? "text-ash-grey-800" : "group-hover:text-ash-grey-500"} transition-colors`} />
+              <Icon className={`w-5 h-5 ${isActive ? "text-white" : "group-hover:text-ash-grey-500"} transition-colors`} />
               {item.label}
             </button>
           );
