@@ -9,8 +9,9 @@ import asyncio
 import websockets
 import base64
 from dotenv import load_dotenv
-from typing import Optional
-from models import TTSRequest
+from typing import Optional, List
+from models import TTSRequest, SummaryRequest
+import google.generativeai as genai
 
 # Load environment variables
 load_dotenv()
@@ -27,6 +28,71 @@ app.add_middleware(
 )
 
 SARVAM_API_KEY = os.getenv("SARVAM_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# Initialize Gemini
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+else:
+    print("⚠️ WARNING: GEMINI_API_KEY not found in environment variables.")
+
+@app.post("/api/summarize")
+async def summarize_session(request: SummaryRequest):
+    """
+    Generate a clinical summary using Gemini API based on session transcript.
+    """
+    if not GEMINI_API_KEY:
+        return {"error": "Gemini API key not configured on backend."}
+    
+    try:
+        models_to_try = [
+            'gemini-2.5-flash',
+            'gemini-2.5-pro',
+            'gemini-1.5-pro-latest',
+            'gemini-1.5-flash'
+        ]
+        
+        prompt = f"""
+        You are a Clinical AI Scribe. Based on the following transcript between a Doctor and Patient, 
+        provide a structured summary in JSON format with the following keys:
+        - symptoms: a list of identified symptoms
+        - diagnosis: potential preliminary diagnoses
+        - notes: brief clinical notes for the doctor
+        
+        Transcript:
+        {request.transcript}
+        
+        Return ONLY valid JSON.
+        """
+        
+        response = None
+        for model_name in models_to_try:
+            try:
+                model = genai.GenerativeModel(model_name)
+                response = await asyncio.to_thread(model.generate_content, prompt)
+                print(f"✅ Successfully generated summary using model: {model_name}")
+                break
+            except Exception as model_e:
+                print(f"⚠️ Model {model_name} failed: {model_e}")
+                continue
+                
+        if not response:
+            raise Exception("All Gemini fallback models failed to generate a summary.")
+        
+        
+        # Clean up JSON if model adds markdown formatting
+        text = response.text.replace('```json', '').replace('```', '').strip()
+        summary_data = json.loads(text)
+        
+        return summary_data
+        
+    except Exception as e:
+        print(f"❌ Gemini Summarize Error: {e}")
+        return {
+            "symptoms": ["Analysis in progress..."],
+            "diagnosis": "Awaiting session data",
+            "notes": "System is processing the live conversation..."
+        }
 
 @app.post("/api/tts")
 async def text_to_speech(request: TTSRequest):

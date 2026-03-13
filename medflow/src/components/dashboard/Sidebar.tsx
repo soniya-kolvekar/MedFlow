@@ -11,7 +11,21 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-export default function Sidebar() {
+export default function Sidebar({ 
+  currentView = "dashboard", 
+  onViewChange 
+}: { 
+  currentView?: string; 
+  onViewChange?: (view: string) => void 
+}) {
+  const menuItems = [
+    { id: "dashboard", label: "Dashboard", icon: Home },
+    { id: "patients", label: "Patients", icon: Users },
+    { id: "appointments", label: "Appointments", icon: Calendar },
+    { id: "reports", label: "Reports", icon: FileText },
+    { id: "analytics", label: "Analytics", icon: BarChart2 },
+  ];
+
   return (
     <aside className="w-64 bg-dark-slate-grey-500 text-white min-h-screen flex flex-col m-4 rounded-3xl overflow-hidden shadow-xl shadow-dark-slate-grey-200/20">
       <div className="p-8 flex items-center gap-3">
@@ -29,51 +43,31 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 px-4 py-6 space-y-2">
-        <Link
-          href="/dashboard/doctor"
-          className="flex items-center gap-3 px-4 py-3 bg-deep-teal-500 text-white rounded-2xl font-medium shadow-md shadow-deep-teal-500/20 transition-all"
-        >
-          <Home className="w-5 h-5 text-ash-grey-800" />
-          Dashboard
-        </Link>
-        <Link
-          href="#"
-          className="flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400 rounded-2xl font-medium transition-all group"
-        >
-          <Users className="w-5 h-5 group-hover:text-ash-grey-500 transition-colors" />
-          Patients
-        </Link>
-        <Link
-          href="#"
-          className="flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400 rounded-2xl font-medium transition-all group"
-        >
-          <Calendar className="w-5 h-5 group-hover:text-ash-grey-500 transition-colors" />
-          Appointments
-        </Link>
-        <Link
-          href="#"
-          className="flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400 rounded-2xl font-medium transition-all group"
-        >
-          <FileText className="w-5 h-5 group-hover:text-ash-grey-500 transition-colors" />
-          Records
-        </Link>
-        <Link
-          href="#"
-          className="flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400 rounded-2xl font-medium transition-all group"
-        >
-          <BarChart2 className="w-5 h-5 group-hover:text-ash-grey-500 transition-colors" />
-          Analytics
-        </Link>
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = currentView === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onViewChange?.(item.id)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-medium transition-all group ${
+                isActive 
+                ? "bg-deep-teal-500 text-white shadow-md shadow-deep-teal-500/20" 
+                : "text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400"
+              }`}
+            >
+              <Icon className={`w-5 h-5 ${isActive ? "text-ash-grey-800" : "group-hover:text-ash-grey-500"} transition-colors`} />
+              {item.label}
+            </button>
+          );
+        })}
       </nav>
 
       <div className="p-4 mt-auto space-y-2">
-        <Link
-          href="#"
-          className="flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400 rounded-2xl font-medium transition-all text-sm"
-        >
+        <button className="w-full flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400 rounded-2xl font-medium transition-all text-sm">
           <HelpCircle className="w-4 h-4" />
           Support
-        </Link>
+        </button>
         <button className="w-full flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400 rounded-2xl font-medium transition-all text-sm">
           <LogOut className="w-4 h-4" />
           Logout
