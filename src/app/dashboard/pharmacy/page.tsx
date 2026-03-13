@@ -115,62 +115,49 @@ export default function PharmacyDashboard() {
                 </button>
               </div>
 
-              <div className="flex items-center gap-3 mb-6 overflow-x-auto pb-2 scrollbar-none">
-                <div className="relative">
+              <div className="flex items-center justify-between gap-4 mb-6">
+                <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-none">
+                  {['All Units', 'Cardiology', 'Neurology', 'Pediatrics', 'Emergency'].map((dept) => (
+                    <button 
+                      key={dept}
+                      onClick={() => setActiveDeptFilter(dept === 'All Units' ? 'All Departments' : dept)}
+                      className={`flex items-center gap-2 whitespace-nowrap px-5 py-3 border rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 ${
+                        (activeDeptFilter === dept || (dept === 'All Units' && activeDeptFilter === 'All Departments'))
+                        ? 'bg-deep-teal-500 text-white border-transparent shadow-lg shadow-deep-teal-500/20' 
+                        : 'bg-white border-ash-grey-700/30 text-charcoal-blue-700 hover:bg-ash-grey-900'
+                      }`}
+                    >
+                      {dept}
+                      {dept !== 'All Units' && <ChevronDown className="h-3 w-3 opacity-30" />}
+                    </button>
+                  ))}
+                  
+                  <div className="h-8 w-[1px] bg-ash-grey-700/30 mx-2" />
+                  
                   <button 
-                    onClick={() => setIsDeptDropdownOpen(!isDeptDropdownOpen)}
-                    className="flex items-center gap-2 px-4 py-2 bg-white border border-ash-grey-700/50 rounded-xl text-xs font-bold text-dark-slate-grey-500 hover:bg-ash-grey-900 transition-all active:scale-95"
+                    onClick={() => setActiveStatusFilter(activeStatusFilter === 'Urgent' ? 'All' : 'Urgent')}
+                    className={`whitespace-nowrap px-4 py-2 border rounded-xl text-xs font-bold transition-all ${
+                      activeStatusFilter === 'Urgent' 
+                      ? 'bg-red-500 text-white border-transparent' 
+                      : 'bg-ash-grey-900/40 border-ash-grey-700/30 text-charcoal-blue-600 hover:bg-white'
+                    }`}
                   >
-                    {activeDeptFilter}
-                    <ChevronDown className={`h-3 w-3 transition-transform ${isDeptDropdownOpen ? 'rotate-180' : ''}`} />
+                    Urgent Only
                   </button>
-                  {isDeptDropdownOpen && (
-                    <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-ash-grey-700/30 z-20 overflow-hidden animate-in fade-in slide-in-from-top-2">
-                      {['All Departments', 'Emergency', 'Cardiology', 'Neurology', 'Pediatrics'].map((dept) => (
-                        <button 
-                          key={dept}
-                          onClick={() => {
-                            setActiveDeptFilter(dept);
-                            setIsDeptDropdownOpen(false);
-                          }}
-                          className="w-full text-left px-4 py-3 text-xs font-bold text-charcoal-blue-700 hover:bg-ash-grey-900 transition-colors"
-                        >
-                          {dept}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
-                <button 
-                  onClick={() => setActiveStatusFilter(activeStatusFilter === 'Urgent' ? 'All' : 'Urgent')}
-                  className={`whitespace-nowrap px-4 py-2 border rounded-xl text-xs font-bold transition-all ${
-                    activeStatusFilter === 'Urgent' 
-                    ? 'bg-red-500 text-white border-transparent' 
-                    : 'bg-ash-grey-900/40 border-ash-grey-700/30 text-charcoal-blue-600 hover:bg-white'
-                  }`}
-                >
-                  Urgent Only
-                </button>
-                <button 
-                  onClick={() => setActiveStatusFilter(activeStatusFilter === 'New Today' ? 'All' : 'New Today')}
-                  className={`whitespace-nowrap px-4 py-2 border rounded-xl text-xs font-bold transition-all ${
-                    activeStatusFilter === 'New Today' 
-                    ? 'bg-deep-teal-500 text-white border-transparent' 
-                    : 'bg-ash-grey-900/40 border-ash-grey-700/30 text-charcoal-blue-600 hover:bg-white'
-                  }`}
-                >
-                  New Today
-                </button>
-                <button 
-                  onClick={() => setActiveStatusFilter(activeStatusFilter === 'Processing' ? 'All' : 'Processing')}
-                  className={`whitespace-nowrap px-4 py-2 border rounded-xl text-xs font-bold transition-all ${
-                    activeStatusFilter === 'Processing' 
-                    ? 'bg-ash-grey-800 text-dark-slate-grey-500 border-ash-grey-700' 
-                    : 'bg-ash-grey-900/40 border-ash-grey-700/30 text-charcoal-blue-600 hover:bg-white'
-                  }`}
-                >
-                  Processing
-                </button>
+
+                <div className="relative group min-w-[300px]">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Search className="h-4 w-4 text-charcoal-blue-700 opacity-30 group-focus-within:text-deep-teal-500 transition-colors" />
+                  </div>
+                  <input 
+                    type="text" 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search patient..." 
+                    className="w-full bg-white border border-ash-grey-700/30 rounded-2xl py-2.5 pl-11 text-xs text-dark-slate-grey-500 focus:outline-none focus:ring-4 focus:ring-deep-teal-500/5 transition-all placeholder:text-charcoal-blue-700/30 font-bold"
+                  />
+                </div>
               </div>
 
               <div className="space-y-4">
