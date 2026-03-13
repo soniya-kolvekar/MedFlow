@@ -74,10 +74,9 @@ async def text_to_speech(request: TTSRequest):
         
 @app.websocket("/ws/translate")
 async def translate_websocket_relay(websocket: WebSocket, source_language: str = "en-IN", target_language: str = "hi-IN"):
-    """
-    WebSocket relay to Sarvam AI Streaming STT-Translate API
-    """
+    print(f"📥 Incoming Connection: {source_language} -> {target_language}")
     await websocket.accept()
+    print("✅ Connection accepted from client.")
     
     # Use standard STT endpoint for transcription
     sarvam_url = (
@@ -117,61 +116,102 @@ async def translate_websocket_relay(websocket: WebSocket, source_language: str =
 
             async def send_to_client():
                 try:
+                    last_transcript = ""
+                    last_translation = ""
+                    last_spoken_text = "" # To prevent repeating the same sentence
+                    
                     async for message in sarvam_ws:
                         resp = json.loads(message)
-                        
-                        # Extract payload
                         payload = resp.get("data", {}) if resp.get("type") == "data" else resp
+                        
                         transcript = payload.get("transcript", "")
                         is_final = payload.get("is_final", False)
-
-                        if not transcript:
+                        
+                        # If no transcript and not final, skip
+                        if not transcript and not is_final:
                             continue
+                        
+                        if transcript:
+                            last_transcript = transcript
 
+                        # Decision: Should we trigger TTS? 
+                        # Trigger if is_final OR if transcript ends with sentence-ending punctuation
+                        should_speak = is_final
+                        if transcript.strip() and transcript.strip()[-1] in ".?!":
+                            should_speak = True
+                        
                         # Hide speaker's language if translating
-                        display_text = "" if target_language != source_language else transcript
+                        display_text = "" if target_language != source_language else last_transcript
                         
                         # Process translation
-                        if target_language != source_language:
+                        if target_language != source_language and last_transcript:
                             try:
-                                # Translation call
                                 def call_translate():
                                     api_url = "https://api.sarvam.ai/translate"
                                     trans_payload = {
-                                        "input": transcript,
+                                        "input": last_transcript,
                                         "source_language_code": source_language,
                                         "target_language_code": target_language
                                     }
                                     return requests.post(api_url, json=trans_payload, headers=headers, timeout=1.5)
 
-                                print(f"Translating: '{transcript}'")
                                 res = await asyncio.to_thread(call_translate)
                                 if res.status_code == 200:
-                                    display_text = res.json().get("translated_text", "")
-                                    print(f"Result: '{display_text}'")
+                                    last_translation = res.json().get("translated_text", "")
+                                    display_text = last_translation
                                 else:
-                                    print(f"Translation API Error {res.status_code}: {res.text}")
+                                    print(f"Translation API Error {res.status_code}")
                             except Exception as te:
                                 print(f"Translation sync error: {te}")
                         
-                        # Send to frontend
-                        # If display_text is empty (waiting for translation), we don't send to avoid clearing the last good subtitle
-                        if display_text:
-                            await websocket.send_text(json.dumps({
-                                "translated_text": display_text,
-                                "transcript": transcript,
-                                "is_final": is_final,
-                                "type": "data"
-                            }))
-                        elif is_final:
-                            # If it's final and we somehow have no translation, send original to ensure it's recorded
-                            await websocket.send_text(json.dumps({
-                                "translated_text": transcript,
-                                "transcript": transcript,
-                                "is_final": True,
-                                "type": "data"
-                            }))
-                            
+                        # Generate TTS if should_speak and we haven't spoken this exact text yet
+                        audio_base64 = None
+                        if should_speak and last_translation and last_translation != last_spoken_text:
+                            print(f"🔊 Triggering TTS for stable sentence: '{last_translation}'")
+                            try:
+                                def call_tts():
+                                    tts_url = "https://api.sarvam.ai/text-to-speech"
+                                    rest_headers = {
+                                        "api-subscription-key": SARVAM_API_KEY,
+                                        "Content-Type": "application/json"
+                                    }
+                                    tts_payload = {
+                                        "inputs": [last_translation],
+                                        "target_language_code": target_language,
+                                        "speaker": "shubh" if target_language == "hi-IN" else "ritu",
+                                        "model": "bulbul:v3"
+                                    }
+                                    return requests.post(tts_url, json=tts_payload, headers=rest_headers, timeout=5)
+                                
+                                tts_res = await asyncio.to_thread(call_tts)
+                                if tts_res.status_code == 200:
+                                    audios = tts_res.json().get("audios", [])
+                                    if audios:
+                                        audio_base64 = audios[0]
+                                        last_spoken_text = last_translation
+                                        print(f"✅ TTS Success ({len(audio_base64)} chars)")
+                            except Exception as tts_e:
+                                print(f"⚠️ TTS Exception: {tts_e}")
+
+                        # Send to frontend (Check if socket is still alive)
+                        try:
+                            if websocket.client_state.value == 1: # CONNECTED
+                                await websocket.send_text(json.dumps({
+                                    "translated_text": display_text or last_transcript,
+                                    "transcript": last_transcript,
+                                    "audio": audio_base64,
+                                    "is_final": is_final or should_speak,
+                                    "type": "data"
+                                }))
+                            else:
+                                break
+                        except Exception:
+                            break
+
+                        if is_final:
+                            last_transcript = ""
+                            last_translation = ""
+                    
                 except Exception as e:
                     print(f"Sarvam relay send error: {e}")
 

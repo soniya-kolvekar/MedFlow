@@ -28,6 +28,7 @@ export default function ClinicalTranscription({ sessionId: initialSessionId }: {
     const [isRecording, setIsRecording] = useState(false);
     const [messages, setMessages] = useState<TranscriptMessage[]>([]);
     const [liveCaption, setLiveCaption] = useState("");
+    const [isAutoPlayEnabled, setIsAutoPlayEnabled] = useState(true);
     const [inputLanguage, setInputLanguage] = useState("hi-IN"); // Language spoken by user
     const [targetLanguage, setTargetLanguage] = useState("en-IN"); // Language to translate into (Subtitles & Speech)
     const [duration, setDuration] = useState(0);
@@ -37,6 +38,25 @@ export default function ClinicalTranscription({ sessionId: initialSessionId }: {
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const socketRef = useRef<WebSocket | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
+
+    // Function to play base64 audio
+    const playBase64Audio = async (base64Data: string) => {
+        if (!isAutoPlayEnabled) return;
+        try {
+            const audioData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+            // Initialize AudioContext if not already done
+            if (!audioContextRef.current) {
+                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+            }
+            const buffer = await audioContextRef.current.decodeAudioData(audioData.buffer);
+            const source = audioContextRef.current.createBufferSource();
+            source.buffer = buffer;
+            source.connect(audioContextRef.current.destination);
+            source.start(0);
+        } catch (error) {
+            console.error("Error playing translated audio:", error);
+        }
+    };
 
     // Sync with Firestore
     useEffect(() => {
@@ -64,13 +84,13 @@ export default function ClinicalTranscription({ sessionId: initialSessionId }: {
     const startRecording = async () => {
         try {
             // 1. Initialize WebSocket via Backend Relay
-            const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const backendUrl = process.env.NEXT_PUBLIC_API_URL || "https://medflow-3.onrender.com";
             const wsUrl = `${backendUrl.replace('http', 'ws')}/ws/translate?source_language=${inputLanguage}&target_language=${targetLanguage}`;
             
             socketRef.current = new WebSocket(wsUrl);
 
             socketRef.current.onopen = () => {
-                console.log("WebSocket Relay connected");
+                console.log("✅ WebSocket Relay connected successfully to:", wsUrl);
             };
             
             socketRef.current.onmessage = async (event) => {
@@ -86,7 +106,12 @@ export default function ClinicalTranscription({ sessionId: initialSessionId }: {
                     });
                 }
 
+                // Play audio if available (from backend TTS)
+                if (data.audio) {
+                    playBase64Audio(data.audio);
+                }
                 if (data.transcript && data.is_final) {
+                    console.log("🏁 Final segment received:", data.transcript);
                     const finalTranscript = data.translated_text || data.transcript;
                     
                     const newMessage: TranscriptMessage = {
@@ -99,18 +124,22 @@ export default function ClinicalTranscription({ sessionId: initialSessionId }: {
                         messages: arrayUnion(newMessage),
                         liveCaption: ""
                     });
-
-                    // Trigger TTS in the target language
-                    const ttsBase64 = await textToSpeech(finalTranscript, targetLanguage);
-                    if (ttsBase64) {
-                        const audio = new Audio(`data:audio/mp3;base64,${ttsBase64}`);
-                        audio.play().catch(err => console.error("TTS Playback Error:", err));
-                    }
+                    setLiveCaption("");
                 }
+
             };
 
             socketRef.current.onerror = (err) => {
-                console.error("WebSocket Error:", err);
+                console.error("❌ WebSocket Connection Error!");
+                console.error("Target URL:", wsUrl);
+                console.error("Error Object Details:", err);
+            };
+
+            socketRef.current.onclose = (event) => {
+                console.warn(`⚠️ WebSocket Closed. Code: ${event.code}, Reason: ${event.reason || 'None'}`);
+                if (event.code === 1006) {
+                    console.error("HINT: Code 1006 usually means the backend server isn't running or there is a CORS issue.");
+                }
             };
 
             // 2. Start Audio Capture (Raw PCM)
@@ -249,6 +278,20 @@ export default function ClinicalTranscription({ sessionId: initialSessionId }: {
                                     <option value="bn-IN">Bengali</option>
                                 </select>
                             </div>
+                            <div className="w-px h-6 bg-ash-grey-600/30 mx-1"></div>
+                            <button
+                                onClick={() => setIsAutoPlayEnabled(!isAutoPlayEnabled)}
+                                className={`flex flex-col gap-1 items-start transition-all hover:opacity-80 active:scale-95 ${isAutoPlayEnabled ? 'text-deep-teal-600' : 'text-ash-grey-600'}`}
+                                title={isAutoPlayEnabled ? "Mute Auto-playback" : "Enable Auto-playback"}
+                            >
+                                <span className="text-[9px] font-black uppercase tracking-widest">Speech</span>
+                                <div className="flex items-center gap-1">
+                                    <Activity className={`w-3 h-3 ${isAutoPlayEnabled ? 'animate-pulse' : ''}`} />
+                                    <span className="text-[11px] font-bold uppercase tracking-wider">
+                                        {isAutoPlayEnabled ? "On" : "Off"}
+                                    </span>
+                                </div>
+                            </button>
                         </div>
                     </div>
                 </div>
