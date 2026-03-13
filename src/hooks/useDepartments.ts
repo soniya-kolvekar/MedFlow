@@ -24,7 +24,7 @@ export interface Department {
   iconBg: string;
 }
 
-const iconMap: Record<string, any> = {
+const iconMap: Record<string, React.ElementType> = {
   Stethoscope,
   FlaskConical,
   Pill,
@@ -45,7 +45,8 @@ export const useDepartments = () => {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const deptList: Department[] = [];
       snapshot.forEach((doc) => {
-        deptList.push({ ...doc.data() as any, id: doc.id });
+        const data = doc.data() as Omit<Department, 'id'>;
+        deptList.push({ ...data, id: doc.id } as unknown as Department);
       });
       setDepartments(deptList);
       setLoading(false);

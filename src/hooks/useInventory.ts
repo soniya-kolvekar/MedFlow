@@ -21,7 +21,8 @@ export const useInventory = () => {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const itemList: InventoryItem[] = [];
       snapshot.forEach((doc) => {
-        itemList.push({ ...doc.data() as any, id: doc.id });
+        const data = doc.data() as Omit<InventoryItem, 'id'>;
+        itemList.push({ ...data, id: doc.id } as unknown as InventoryItem);
       });
       setInventory(itemList);
       setLoading(false);

@@ -1,161 +1,325 @@
 "use client";
 
-import { useState } from 'react';
-import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import { 
-  Users, 
-  Activity, 
-  TrendingUp, 
-  Calendar, 
-  ArrowUpRight, 
-  ArrowDownRight,
-  UserPlus,
+import { useState, useEffect, useRef } from 'react';
+import AdminLayout from '@/components/dashboard/AdminLayout';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot, orderBy, query, limit } from 'firebase/firestore';
+import {
+  Activity,
+  ArrowUpRight,
   Clock,
-  MoreVertical,
-  Search,
-  Bell,
-  Settings
+  FlaskConical,
+  Truck,
+  FileText,
+  Loader2,
+  Stethoscope,
+  Plus,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
-const stats = [
-  { label: 'Total Patients', value: '1,284', change: '+12.5%', trend: 'up', icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
-  { label: 'Avg. Consultation', value: '24 min', change: '-2.1%', trend: 'down', icon: Clock, color: 'text-deep-teal-600', bg: 'bg-deep-teal-50' },
-  { label: 'Revenue Forecast', value: '$420K', change: '+8.4%', trend: 'up', icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50' },
-  { label: 'System Uptime', value: '99.9%', change: 'Stable', trend: 'up', icon: Activity, color: 'text-purple-600', bg: 'bg-purple-50' },
-];
+interface LogEntry {
+  id: string;
+  type: 'DELIVERY' | 'LAB' | 'SYSTEM';
+  title?: string;
+  message?: string;
+  patientName?: string;
+  fileName?: string;
+  testName?: string;
+  createdAt?: string;
+  uploadedAt?: string;
+}
 
-const recentActivity = [
-  { user: 'Dr. Sarah Jenkins', action: 'Approved Prescription', time: '2m ago', id: '#P-9281' },
-  { user: 'Nurse Mark Thorne', action: 'Checked-in Patient', time: '5m ago', id: '#A-4432' },
-  { user: 'Lab Tech Elena', action: 'Uploaded MRI Scans', time: '12m ago', id: '#L-1092' },
-  { user: 'Admin System', action: 'Daily Backup Complete', time: '45m ago', id: '#S-0000' },
-];
+function timeAgo(isoString?: string): string {
+  if (!isoString) return '';
+  const now = new Date();
+  const past = new Date(isoString);
+  const diff = now.getTime() - past.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
 export default function AdminDashboard() {
-  const [timeRange, setTimeRange] = useState('Last 7 Days');
+  const [patientCount, setPatientCount]     = useState<number | null>(null);
+  const [reportCount, setReportCount]       = useState<number | null>(null);
+  const [deliveryCount, setDeliveryCount]   = useState<number | null>(null);
+  const [logs, setLogs]                     = useState<LogEntry[]>([]);
+  const [newLogId, setNewLogId]             = useState<string | null>(null);
+  const isFirstLogs = useRef(true);
+
+  // Live Firestore listeners
+  useEffect(() => {
+    const unsubPatients = onSnapshot(collection(db, 'patients'), snap => setPatientCount(snap.size));
+    const unsubReports = onSnapshot(collection(db, 'reports'), snap => setReportCount(snap.size));
+    const unsubNotifs = onSnapshot(collection(db, 'notifications'), snap => setDeliveryCount(snap.size));
+
+    // ─── Real-time system activity log (merges reports + notifications + patients) ───────
+    const reportsUnsub = onSnapshot(
+      query(collection(db, 'reports'), orderBy('uploadedAt', 'desc'), limit(10)),
+      (snap) => {
+        snap.docChanges().forEach((change) => {
+          if (change.type === 'added' && !isFirstLogs.current) {
+            setNewLogId(change.doc.id);
+            setTimeout(() => setNewLogId(null), 4000);
+          }
+        });
+        const entries = snap.docs.map(d => ({ id: d.id, type: 'LAB', ...d.data() })) as LogEntry[];
+        setLogs(prev => mergeAndSort([...entries, ...prev.filter(e => e.type !== 'LAB')]));
+        isFirstLogs.current = false;
+      }
+    );
+
+    const notifUnsub = onSnapshot(
+      query(collection(db, 'notifications'), orderBy('createdAt', 'desc'), limit(10)),
+      (snap) => {
+        snap.docChanges().forEach((change) => {
+          if (change.type === 'added' && !isFirstLogs.current) {
+            setNewLogId(change.doc.id);
+            setTimeout(() => setNewLogId(null), 4000);
+          }
+        });
+        const entries = snap.docs.map(d => ({ id: d.id, type: 'DELIVERY', ...d.data() })) as LogEntry[];
+        setLogs(prev => mergeAndSort([...entries, ...prev.filter(e => e.type !== 'DELIVERY')]));
+      }
+    );
+
+    // Also track new patients (e.g. "Elena Rodriguez registered")
+    const patientsUnsub = onSnapshot(
+      query(collection(db, 'patients'), orderBy('lastUpdated', 'desc'), limit(10)),
+      (snap) => {
+        snap.docChanges().forEach((change) => {
+          if (change.type === 'added' && !isFirstLogs.current) {
+            setNewLogId(change.doc.id);
+            setTimeout(() => setNewLogId(null), 4000);
+          }
+        });
+        const entries = snap.docs.map(d => ({ 
+          id: d.id, 
+          type: 'SYSTEM', 
+          title: `New Patient: ${d.data().name}`, 
+          message: `Medical record ${d.id} initialized in ${d.data().dept || 'Emergency'}.`,
+          createdAt: d.data().lastUpdated || d.data().resolvedAt || new Date().toISOString()
+        })) as LogEntry[];
+        setLogs(prev => mergeAndSort([...entries, ...prev.filter(e => e.type !== 'SYSTEM')]));
+      }
+    );
+
+    return () => { unsubPatients(); unsubReports(); unsubNotifs(); reportsUnsub(); notifUnsub(); patientsUnsub(); };
+  }, []);
+
+  function mergeAndSort(entries: LogEntry[]): LogEntry[] {
+    const seen = new Set<string>();
+    return entries
+      .filter(e => { if (seen.has(e.id)) return false; seen.add(e.id); return true; })
+      .sort((a, b) => new Date(b.createdAt || b.uploadedAt || 0).getTime() - new Date(a.createdAt || a.uploadedAt || 0).getTime())
+      .slice(0, 10);
+  }
 
   return (
-    <DashboardLayout>
-      <div className="space-y-8 pb-12">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <h1 className="text-4xl font-black text-dark-slate-grey-500 tracking-tight leading-none uppercase">Admin Overview</h1>
-            <p className="text-charcoal-blue-700 mt-3 font-medium opacity-60 italic">"Efficiency is the foundation of patient care excellence."</p>
-          </div>
-          
-          <div className="flex items-center gap-4">
-             <div className="hidden lg:flex p-1 bg-ash-grey-900/40 rounded-2xl border border-ash-grey-700/30">
-                {['24h', '7d', '30d', 'Quarterly'].map((range) => (
-                    <button 
-                        key={range}
-                        onClick={() => setTimeRange(range)}
-                        className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                            timeRange.toLowerCase().includes(range.toLowerCase()) 
-                            ? 'bg-white text-dark-slate-grey-500 shadow-sm' 
-                            : 'text-charcoal-blue-700 opacity-40 hover:opacity-100'
-                        }`}
-                    >
-                        {range}
-                    </button>
-                ))}
+    <AdminLayout>
+      <div className="space-y-10">
+        
+        {/* Header Title Section */}
+        <div className="flex items-center justify-between">
+            <div>
+                <h1 className="text-4xl font-bold text-[#132A13] tracking-tight mb-2">System Overview</h1>
+                <p className="text-gray-500 font-medium">A real-time snapshot of MedFlow AI infrastructure. Monitoring clinic efficiency and critical patient throughput.</p>
             </div>
-            <button className="p-3 bg-white border border-ash-grey-700/50 rounded-2xl text-dark-slate-grey-500 hover:bg-ash-grey-900 transition-all shadow-sm relative">
-                <Bell className="h-5 w-5" />
-                <div className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 border-2 border-white rounded-full"></div>
-            </button>
-          </div>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((stat, i) => (
-            <div key={i} className="bg-white rounded-[40px] p-8 border border-ash-grey-700/20 shadow-xl shadow-charcoal-blue-500/5 hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 group">
-              <div className="flex items-center justify-between mb-8">
-                <div className={`p-4 rounded-[24px] ${stat.bg} ${stat.color} group-hover:scale-110 transition-transform duration-500`}>
-                  <stat.icon className="h-6 w-6" />
-                </div>
-                <div className={`flex items-center gap-1 text-[10px] font-black uppercase tracking-widest ${stat.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
-                  {stat.change}
-                  {stat.trend === 'up' ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                </div>
-              </div>
-              <h3 className="text-3xl font-black text-dark-slate-grey-500 mb-1 tracking-tighter">{stat.value}</h3>
-              <p className="text-[10px] font-black text-charcoal-blue-700 uppercase tracking-widest opacity-40">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Main Visual/Chart Replacement */}
-            <div className="lg:col-span-2 bg-dark-slate-grey-500 rounded-[48px] p-10 text-white relative overflow-hidden shadow-2xl shadow-dark-slate-grey-500/20 group">
-                <div className="relative z-10 h-full flex flex-col">
-                    <div className="flex items-center justify-between mb-12">
-                        <div>
-                            <h3 className="text-2xl font-black uppercase tracking-tight">Department Performance</h3>
-                            <p className="text-ash-grey-700 text-xs font-bold mt-1 opacity-60">Real-time throughput analysis</p>
-                        </div>
-                        <Settings className="h-5 w-5 opacity-20 hover:opacity-100 cursor-pointer transition-opacity" />
-                    </div>
-                    
-                    <div className="flex-1 flex flex-col justify-center gap-8">
-                        {[
-                            { label: 'Cardiology', val: 88, color: 'bg-blue-400' },
-                            { label: 'Radiology', val: 64, color: 'bg-deep-teal-500' },
-                            { label: 'Emergency', val: 95, color: 'bg-red-400' },
-                            { label: 'Neurology', val: 42, color: 'bg-purple-400' },
-                        ].map((dept, i) => (
-                            <div key={i} className="space-y-2">
-                                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                                    <span className="opacity-60">{dept.label}</span>
-                                    <span>{dept.val}% Load</span>
-                                </div>
-                                <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                                    <div 
-                                        className={`h-full ${dept.color} transition-all duration-1000 ease-out delay-[${i * 200}ms]`}
-                                        style={{ width: `${dept.val}%` }}
-                                    ></div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                
-                {/* Decorative background elements */}
-                <div className="absolute top-0 right-0 -mr-24 -mt-24 w-96 h-96 bg-white/5 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-1000"></div>
-                <div className="absolute bottom-0 left-0 -ml-12 -mb-12 w-48 h-48 bg-deep-teal-500/20 rounded-full blur-2xl"></div>
-            </div>
-
-            {/* Side Activity */}
-            <div className="bg-ash-grey-900/30 rounded-[48px] p-10 border border-ash-grey-700/20">
-                <h3 className="text-xl font-black text-dark-slate-grey-500 mb-10 flex items-center justify-between uppercase tracking-tighter">
-                    Recent Activity
-                    <Clock className="h-5 w-5 text-deep-teal-500" />
-                </h3>
-                
-                <div className="space-y-8">
-                    {recentActivity.map((act, i) => (
-                        <div key={i} className="flex gap-5 group cursor-pointer animate-in fade-in slide-in-from-right-4" style={{ animationDelay: `${i * 100}ms` }}>
-                            <div className="h-12 w-12 rounded-2xl bg-white border border-ash-grey-800/20 shadow-sm flex items-center justify-center group-hover:bg-dark-slate-grey-500 group-hover:text-white transition-all duration-300">
-                                <ArrowUpRight className="h-5 w-5" />
-                            </div>
-                            <div className="flex-1 border-b border-ash-grey-800/10 pb-5 last:border-0 group-hover:border-ash-grey-800/40 transition-colors">
-                                <div className="flex items-center justify-between mb-1">
-                                    <h4 className="font-black text-sm text-dark-slate-grey-500">{act.user}</h4>
-                                    <span className="text-[9px] font-black text-charcoal-blue-700 opacity-30 uppercase">{act.time}</span>
-                                </div>
-                                <p className="text-[11px] text-charcoal-blue-700 font-bold opacity-60">{act.action} <span className="text-deep-teal-600 ml-1">{act.id}</span></p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                
-                <button className="w-full mt-10 py-4 bg-white border border-ash-grey-700 text-[10px] font-black text-charcoal-blue-700 uppercase tracking-widest rounded-2xl hover:bg-ash-grey-900 transition-all active:scale-95">
-                    View System Logs
+            <div className="flex items-center gap-4">
+                <button className="px-6 py-3 rounded-2xl bg-gray-100 text-gray-700 font-bold text-sm hover:bg-gray-200 transition-all">
+                    Generate Report
+                </button>
+                <button className="px-6 py-3 rounded-2xl bg-[#3D7C65] text-white font-bold text-sm flex items-center gap-2 hover:bg-[#2F614E] transition-all shadow-lg shadow-[#3D7C65]/20">
+                    <Plus className="h-4 w-4" />
+                    New Intake
                 </button>
             </div>
         </div>
+
+        {/* Top Feature Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Consultations Card */}
+            <div className="bg-[#3D7C65] rounded-[40px] p-10 text-white shadow-2xl shadow-[#3D7C65]/20 relative overflow-hidden group">
+                <div className="relative z-10">
+                    <p className="text-sm font-bold uppercase tracking-widest opacity-60 mb-2">Consultations today</p>
+                    <h2 className="text-7xl font-bold tracking-tighter mb-4">{patientCount || 142}</h2>
+                    <p className="text-sm font-medium flex items-center gap-1 opacity-80">
+                        <ArrowUpRight className="h-4 w-4" />
+                        12% increase from yesterday
+                    </p>
+
+                    <div className="flex items-end gap-2 mt-10 h-24">
+                        {[40, 70, 45, 90, 65, 85, 55].map((h, i) => (
+                            <div key={i} className="flex-1 bg-white/20 rounded-t-lg transition-all duration-500 group-hover:bg-white/40" style={{ height: `${h}%` }}></div>
+                        ))}
+                    </div>
+                </div>
+                {/* Decoration */}
+                <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-white/5 rounded-full blur-3xl"></div>
+            </div>
+
+            {/* Pending Prescriptions Card */}
+            <div className="bg-white rounded-[40px] p-10 shadow-xl shadow-gray-200/50 border border-gray-100 flex flex-col justify-between">
+                <div>
+                   <div className="flex items-center justify-between mb-8">
+                        <div className="w-12 h-12 bg-[#D1E7DD] rounded-2xl flex items-center justify-center text-[#3D7C65]">
+                            <Stethoscope className="h-6 w-6" />
+                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-red-500 bg-red-50 px-3 py-1.5 rounded-full">Urgent</span>
+                   </div>
+                   <p className="text-sm font-bold text-gray-400 mb-2">Pending prescriptions</p>
+                   <h2 className="text-5xl font-bold text-gray-800 tracking-tighter mb-8">{deliveryCount || 28}</h2>
+                </div>
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-400 font-bold uppercase">Avg processing time</span>
+                        <span className="text-gray-800 font-bold">14 mins</span>
+                    </div>
+                    <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-[#3D7C65] w-[65%] rounded-full shadow-sm"></div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Lab Requests Card */}
+            <div className="bg-white rounded-[40px] p-10 shadow-xl shadow-gray-200/50 border border-gray-100 flex flex-col justify-between">
+                <div>
+                   <div className="flex items-center justify-between mb-8">
+                        <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-500">
+                            <FlaskConical className="h-6 w-6" />
+                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-[#3D7C65] bg-gray-50 px-3 py-1.5 rounded-full">In Progress</span>
+                   </div>
+                   <p className="text-sm font-bold text-gray-400 mb-2">Lab requests</p>
+                   <h2 className="text-5xl font-bold text-gray-800 tracking-tighter mb-8">{reportCount || 54}</h2>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    {[1,2,3].map(i => (
+                        <div key={i} className="w-9 h-9 rounded-full border-2 border-white bg-gray-200 overflow-hidden -ml-2 first:ml-0">
+                            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i * 100}`} alt="doctor" />
+                        </div>
+                    ))}
+                    <div className="w-9 h-9 rounded-full border-2 border-white bg-gray-50 flex items-center justify-center -ml-2">
+                        <span className="text-[10px] font-bold text-gray-400">+8</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {/* Bottom Section: Chart + Activity Log */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+            {/* Consultation Stats Chart Area */}
+            <div className="lg:col-span-8 bg-white/40 rounded-[48px] p-10 border border-white relative min-h-[500px]">
+                <div className="flex items-center justify-between mb-12">
+                    <div>
+                        <h3 className="text-2xl font-bold text-[#132A13]">Consultation Stats</h3>
+                        <p className="text-gray-400 font-medium text-sm mt-1">Daily volume by department</p>
+                    </div>
+                    <button className="flex items-center gap-2 bg-white px-4 py-2 border border-gray-100 rounded-xl text-xs font-bold text-gray-600 shadow-sm hover:bg-gray-50 transition-all">
+                        Last 7 Days
+                        <ChevronRight className="h-3 w-3 rotate-90" />
+                    </button>
+                </div>
+
+                {/* Mock Chart Grid */}
+                <div className="relative h-[300px] flex items-end justify-between px-4 pb-12 border-b border-gray-100">
+                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => (
+                        <div key={day} className="flex flex-col items-center gap-4 w-12 h-full justify-end group">
+                            <div className="flex gap-1 items-end w-full h-full">
+                                <div className="w-1/2 bg-[#2C332F] rounded-t-md transition-all duration-700 delay-[50ms]" style={{ height: `${[45, 65, 40, 80, 50, 45, 10][i]}%` }}></div>
+                                <div className="w-1/2 bg-[#3D7C65] rounded-t-md transition-all duration-700 delay-[200ms]" style={{ height: `${[60, 40, 75, 55, 65, 30, 5][i]}%` }}></div>
+                            </div>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest absolute -bottom-8">{day}</span>
+                        </div>
+                    ))}
+                    
+                    {/* Horizontal background lines */}
+                    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between py-12 pr-4">
+                        {[1,2,3,4].map(l => (
+                            <div key={l} className="w-full border-t border-gray-50"></div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* System Activity Log Area */}
+            <div className="lg:col-span-4 flex flex-col">
+                <div className="flex items-center justify-between mb-8 px-2">
+                    <h3 className="text-xl font-bold text-[#132A13]">System activity log</h3>
+                    <button className="text-[11px] font-bold text-[#3D7C65] uppercase tracking-widest border-b border-[#3D7C65]/20 hover:border-[#3D7C65] transition-all">View All</button>
+                </div>
+
+                <div className="space-y-6 flex-1">
+                    {logs.length === 0 ? (
+                        <div className="bg-white rounded-[32px] p-10 flex flex-col items-center text-center justify-center opacity-40">
+                             <Loader2 className="h-10 w-10 animate-spin mb-4" />
+                             <p className="text-xs font-bold uppercase tracking-widest tracking-tighter">Syncing realtime data...</p>
+                        </div>
+                    ) : logs.map((log) => {
+                        const isNew = log.id === newLogId;
+                        const isLab = log.type === 'LAB';
+                        const isDelivery = log.type === 'DELIVERY';
+                        
+                        // Select indicator color and icon
+                        let lineColor = 'bg-gray-300';
+                        let iconBg = 'bg-gray-50';
+                        let iconColor = 'text-gray-400';
+                        
+                        if (isLab) {
+                            lineColor = 'bg-[#3D7C65]';
+                            iconBg = 'bg-[#D1E7DD]';
+                            iconColor = 'text-[#3D7C65]';
+                        } else if (isDelivery) {
+                            lineColor = 'bg-blue-400';
+                            iconBg = 'bg-blue-50';
+                            iconColor = 'text-blue-500';
+                        } else {
+                            lineColor = 'bg-amber-400';
+                            iconBg = 'bg-amber-50';
+                            iconColor = 'text-amber-500';
+                        }
+
+                        return (
+                            <div key={log.id} className={`flex gap-6 items-start transition-all duration-700 ${isNew ? 'scale-105 origin-left' : ''}`}>
+                                <div className={`w-1 h-14 rounded-full ${lineColor} opacity-20`}></div>
+                                <div className="flex-1">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{timeAgo(log.createdAt || log.uploadedAt)}</span>
+                                    <h4 className="font-bold text-[#132A13] text-sm mt-0.5 leading-tight">
+                                        {isLab ? (log.testName || 'Lab Report Filed') : (log.title || 'System Event')}
+                                    </h4>
+                                    <p className="text-xs text-gray-500 font-medium mt-1 leading-relaxed">
+                                        {isLab 
+                                            ? `${log.patientName || 'Patient'}'s report successfully uploaded to Cloudinary.`
+                                            : log.message || 'System activity tracked successfully.'}
+                                    </p>
+                                </div>
+                                {isNew && (
+                                    <div className={`w-2 h-2 rounded-full ${isLab ? 'bg-[#3D7C65]' : 'bg-red-500'} animate-ping mt-1`}></div>
+                                )}
+                            </div>
+                        );
+                    })}
+
+                    {/* Filling the space if no logs */}
+                    {logs.length > 0 && logs.length < 4 && Array(4 - logs.length).fill(0).map((_, i) => (
+                         <div key={i} className="flex gap-6 items-start opacity-20 filter grayscale">
+                         <div className="w-1 h-14 rounded-full bg-gray-300"></div>
+                         <div className="flex-1">
+                             <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">08:30 AM</span>
+                             <h4 className="font-bold text-gray-300 text-sm mt-0.5 leading-tight">Previous System Activity</h4>
+                             <p className="text-xs text-gray-300 font-medium mt-1 leading-relaxed">Historical logging archive placeholder.</p>
+                         </div>
+                     </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+
       </div>
-    </DashboardLayout>
+    </AdminLayout>
   );
 }

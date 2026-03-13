@@ -8,7 +8,7 @@ import { seedDatabase } from '@/lib/seed';
 import { db } from '@/lib/firebase';
 import Modal from '@/components/ui/Modal';
 import PatientForm from '@/components/forms/PatientForm';
-import { doc, updateDoc, increment } from 'firebase/firestore';
+import { doc, updateDoc, increment, addDoc, collection } from 'firebase/firestore';
 import { 
   Plus, 
   ChevronRight, 
@@ -120,6 +120,23 @@ export default function PharmacyDashboard() {
         totalBilled: calculateTotal(),
         resolvedAt: new Date().toISOString()
       });
+
+      // 3. If Ship-to-Home — send a notification to the patient's portal
+      if (fulfillmentType === 'Ship-to-Home') {
+        // Strip '#' prefix if present. e.g. '#MF-92850' → 'MF-92850'
+        const cleanPatientId = activePatient.id.replace('#', '');
+        await addDoc(collection(db, 'notifications'), {
+          patientId: cleanPatientId,
+          patientName: activePatient.name,
+          type: 'DELIVERY',
+          title: '📦 Your Medication Is On Its Way!',
+          message: `Your prescription from Central Hospital has been dispatched for home delivery. Total: $${calculateTotal().toFixed(2)}.`,
+          medicines: activePatient.items?.map((i: any) => i.name).join(', ') || '',
+          total: calculateTotal(),
+          createdAt: new Date().toISOString(),
+          read: false
+        });
+      }
 
       // 3. Reset local state
       setAiCheckResults(null);

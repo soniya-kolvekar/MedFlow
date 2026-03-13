@@ -24,7 +24,8 @@ export const useReports = () => {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const reportList: Report[] = [];
       snapshot.forEach((doc) => {
-        reportList.push({ ...doc.data() as any, id: doc.id });
+        const data = doc.data() as Omit<Report, 'id'>;
+        reportList.push({ ...data, id: doc.id } as unknown as Report);
       });
       setReports(reportList);
       setLoading(false);

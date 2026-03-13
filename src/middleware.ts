@@ -27,8 +27,13 @@ export function middleware(request: NextRequest) {
 
     // Check if the first segment after /dashboard is another role's restricted dashboard
     const firstDashSegment = pathSegments[1];
-    if (roles.includes(firstDashSegment) && firstDashSegment !== role) {
-      return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url));
+    
+    // In development mode, allow developers to view ANY dashboard freely to test UI.
+    // In production, enforce role-based redirects.
+    if (process.env.NODE_ENV !== 'development') {
+      if (roles.includes(firstDashSegment) && firstDashSegment !== role) {
+        return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url));
+      }
     }
   }
 

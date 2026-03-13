@@ -11,12 +11,17 @@ import {
   LifeBuoy, 
   LogOut,
   ShieldPlus,
-  Building2
+  Building2,
+  Activity,
+  ShieldCheck
 } from 'lucide-react';
 
 const navItems = [
   { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard/pharmacy' },
+  { name: 'Admin', icon: ShieldCheck, href: '/dashboard/admin' },
   { name: 'Patients', icon: Users, href: '/dashboard/patients' },
+  { name: 'Lab', icon: Activity, href: '/dashboard/lab' },
+  { name: 'Patient Portal', icon: ShieldPlus, href: '/dashboard/patient' },
   { name: 'Appointments', icon: Calendar, href: '/dashboard/appointments' },
   { name: 'Departments', icon: Building2, href: '/dashboard/departments' },
   { name: 'Reports', icon: FileText, href: '/dashboard/reports' },
