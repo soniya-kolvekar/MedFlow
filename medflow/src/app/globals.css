@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: "Inter", Arial, Helvetica, sans-serif;
+
+  /* Custom MedFlow AI Palette (Precise Scale) */
+  --color-ash-grey: #cad2c5;
+  --color-ash-grey-100: #282e23;
+  --color-ash-grey-200: #4f5c47;
+  --color-ash-grey-300: #778a6a;
+  --color-ash-grey-400: #a0af97;
+  --color-ash-grey-500: #cad2c5;
+  --color-ash-grey-600: #d5dcd1;
+  --color-ash-grey-700: #dfe4dc;
+  --color-ash-grey-800: #eaede8;
+  --color-ash-grey-900: #f4f6f3;
+
+  --color-muted-teal: #84a98c;
+  --color-muted-teal-100: #19241b;
+  --color-muted-teal-200: #314736;
+  --color-muted-teal-300: #4a6b51;
+  --color-muted-teal-400: #638e6c;
+  --color-muted-teal-500: #84a98c;
+  --color-muted-teal-600: #9cbaa3;
+  --color-muted-teal-700: #b5ccba;
+  --color-muted-teal-800: #ceddd1;
+  --color-muted-teal-900: #e6eee8;
+
+  --color-deep-teal: #52796f;
+  --color-deep-teal-100: #111816;
+  --color-deep-teal-200: #21312d;
+  --color-deep-teal-300: #324943;
+  --color-deep-teal-400: #426159;
+  --color-deep-teal-500: #52796f;
+  --color-deep-teal-600: #6d9c90;
+  --color-deep-teal-700: #92b5ac;
+  --color-deep-teal-800: #b6cdc8;
+  --color-deep-teal-900: #dbe6e3;
+
+  --color-dark-slate-grey: #354f52;
+  --color-dark-slate-grey-100: #0a0f10;
+  --color-dark-slate-grey-200: #151f20;
+  --color-dark-slate-grey-300: #1f2e30;
+  --color-dark-slate-grey-400: #2a3e40;
+  --color-dark-slate-grey-500: #354f52;
+  --color-dark-slate-grey-600: #527a7e;
+  --color-dark-slate-grey-700: #76a1a6;
+  --color-dark-slate-grey-800: #a4c0c3;
+  --color-dark-slate-grey-900: #d1e0e1;
+
+  --color-charcoal-blue: #2f3e46;
+  --color-charcoal-blue-100: #090c0e;
+  --color-charcoal-blue-200: #13191c;
+  --color-charcoal-blue-300: #1c252a;
+  --color-charcoal-blue-400: #263238;
+  --color-charcoal-blue-500: #2f3e46;
+  --color-charcoal-blue-600: #4e6876;
+  --color-charcoal-blue-700: #7290a1;
+  --color-charcoal-blue-800: #a1b5c0;
+  --color-charcoal-blue-900: #d0dae0;
+}
+
+:root {
+  --background: var(--color-ash-grey-900);
+  --foreground: var(--color-charcoal-blue-500);
+}
+
+/* Forced Light Theme */
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Base styles for scrollbars and clean aesthetics */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-ash-grey-500);
+  border-radius: 20px;
+}
