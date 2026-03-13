@@ -1,80 +1,83 @@
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { 
-  ShieldPlus, 
-  LayoutDashboard, 
-  Stethoscope, 
-  Activity, 
-  ShieldCheck, 
-  FileText, 
-  Calendar, 
-  Bell, 
-  User, 
-  Settings, 
-  LogOut 
-} from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+import React from "react";
+import {
+  Home,
+  Users,
+  Calendar,
+  FileText,
+  BarChart2,
+  HelpCircle,
+  LogOut,
+  ShieldPlus,
+} from "lucide-react";
+import Link from "next/link";
 
 export default function Sidebar() {
-  const pathname = usePathname();
-  const { logout } = useAuth();
-  
-  const links = [
-    { name: 'Dashboard', href: '/dashboard/patient', icon: LayoutDashboard },
-    { name: 'Consult Doctor', href: '/dashboard/patient/consult', icon: Stethoscope },
-    { name: 'Health Checkups', href: '/dashboard/patient/checkups', icon: Activity },
-    { name: 'Specialities', href: '/dashboard/patient/specialities', icon: ShieldCheck },
-    { name: 'My Records', href: '/dashboard/patient/records', icon: FileText },
-    { name: 'Appointments', href: '/dashboard/patient/appointments', icon: Calendar },
-    { name: 'Notifications', href: '/dashboard/patient/notifications', icon: Bell },
-    { name: 'Profile', href: '/dashboard/patient/profile', icon: User },
-  ];
-
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-charcoal-blue-400 bg-charcoal-blue-500 transition-transform sm:translate-x-0">
-      <div className="flex h-full flex-col px-4 py-6">
-        
-        {/* Brand */}
-        <Link href="/" className="mb-10 flex items-center gap-2 px-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-deep-teal-500 text-white">
-             <ShieldPlus className="h-5 w-5" />
-          </div>
-          <span className="text-xl font-bold tracking-tight text-white">MedFlow AI</span>
-        </Link>
-        
-        {/* Nav Links */}
-        <div className="flex-1 space-y-1 overflow-y-auto pr-2">
-          {links.map((link) => {
-            const Icon = link.icon;
-            const isActive = pathname === link.href;
-            
-            return (
-              <Link
-                key={link.name}
-                href={link.href}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
-                  isActive 
-                    ? 'bg-deep-teal-500 text-white shadow-lg shadow-deep-teal-500/20' 
-                    : 'text-charcoal-blue-900 hover:bg-charcoal-blue-400 hover:text-white'
-                }`}
-              >
-                <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-charcoal-blue-800'}`} />
-                {link.name}
-              </Link>
-            );
-          })}
+    <aside className="w-64 bg-dark-slate-grey-500 text-white min-h-screen flex flex-col m-4 rounded-3xl overflow-hidden shadow-xl shadow-dark-slate-grey-200/20">
+      <div className="p-8 flex items-center gap-3">
+        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-deep-teal-500">
+          <ShieldPlus className="w-6 h-6" />
         </div>
+        <div>
+          <h2 className="font-bold text-lg leading-tight tracking-tight">
+            MedFlow AI
+          </h2>
+          <p className="text-[10px] text-dark-slate-grey-800 uppercase tracking-widest font-semibold">
+            Medical Portal
+          </p>
+        </div>
+      </div>
 
-        {/* Footer actions */}
-        <div className="mt-auto border-t border-charcoal-blue-400 pt-4">
-           <button 
-             onClick={() => logout()}
-             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors"
-           >
-             <LogOut className="h-5 w-5" />
-             Log Out
-           </button>
-        </div>
+      <nav className="flex-1 px-4 py-6 space-y-2">
+        <Link
+          href="/dashboard/doctor"
+          className="flex items-center gap-3 px-4 py-3 bg-deep-teal-500 text-white rounded-2xl font-medium shadow-md shadow-deep-teal-500/20 transition-all"
+        >
+          <Home className="w-5 h-5 text-ash-grey-800" />
+          Dashboard
+        </Link>
+        <Link
+          href="#"
+          className="flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400 rounded-2xl font-medium transition-all group"
+        >
+          <Users className="w-5 h-5 group-hover:text-ash-grey-500 transition-colors" />
+          Patients
+        </Link>
+        <Link
+          href="#"
+          className="flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400 rounded-2xl font-medium transition-all group"
+        >
+          <Calendar className="w-5 h-5 group-hover:text-ash-grey-500 transition-colors" />
+          Appointments
+        </Link>
+        <Link
+          href="#"
+          className="flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400 rounded-2xl font-medium transition-all group"
+        >
+          <FileText className="w-5 h-5 group-hover:text-ash-grey-500 transition-colors" />
+          Records
+        </Link>
+        <Link
+          href="#"
+          className="flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400 rounded-2xl font-medium transition-all group"
+        >
+          <BarChart2 className="w-5 h-5 group-hover:text-ash-grey-500 transition-colors" />
+          Analytics
+        </Link>
+      </nav>
+
+      <div className="p-4 mt-auto space-y-2">
+        <Link
+          href="#"
+          className="flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400 rounded-2xl font-medium transition-all text-sm"
+        >
+          <HelpCircle className="w-4 h-4" />
+          Support
+        </Link>
+        <button className="w-full flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400 rounded-2xl font-medium transition-all text-sm">
+          <LogOut className="w-4 h-4" />
+          Logout
+        </button>
       </div>
     </aside>
   );
