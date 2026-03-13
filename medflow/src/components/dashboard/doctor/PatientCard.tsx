@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import React, { useState, useEffect } from "react";
 import { Clock, AlertTriangle, User } from "lucide-react";
-import { db } from "../../../../lib/firebase";
+import { db } from "@/lib/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 
 export default function PatientCard({ sessionId = "demo-session-123" }: { sessionId?: string }) {
@@ -18,12 +18,17 @@ export default function PatientCard({ sessionId = "demo-session-123" }: { sessio
 
     useEffect(() => {
         const sessionRef = doc(db, "sessions", sessionId);
-        const unsubscribe = onSnapshot(sessionRef, (doc) => {
-            if (doc.exists()) {
-                const data = doc.data();
-                // If there's patient data in the session, update it
-                if (data.patientName) setPatient(prev => ({ ...prev, name: data.patientName }));
-                if (data.allergies) setPatient(prev => ({ ...prev, allergies: data.allergies }));
+        const unsubscribe = onSnapshot(sessionRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                setPatient(prev => ({
+                    ...prev,
+                    name: data.patientName || prev.name,
+                    age: data.patientAge || prev.age,
+                    gender: data.patientGender || prev.gender,
+                    id: data.patientId || prev.id,
+                    allergies: data.allergies || prev.allergies,
+                }));
             }
         });
         return () => unsubscribe();
