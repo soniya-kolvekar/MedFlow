@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useRef, useState } from 'react';
@@ -367,6 +368,5 @@ export default function LabDashboard() {
         </div>
       </div>
     </DashboardLayout>
-
   );
 }
