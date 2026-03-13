@@ -26,6 +26,7 @@ import {
 export default function PatientsPage() {
   const { patients, loading } = usePatients();
   const [activeTab, setActiveTab] = useState('All Status');
+  const [activeDeptFilter, setActiveDeptFilter] = useState('All Departments');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [viewDetailsPatient, setViewDetailsPatient] = useState<Patient | null>(null);
@@ -33,8 +34,15 @@ export default function PatientsPage() {
   const filteredPatients = (patients as Patient[]).filter((patient: Patient) => {
     const matchesSearch = patient.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          patient.id.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTab = activeTab === 'All Status' || patient.status.toLowerCase().includes(activeTab.toLowerCase().split(' ')[0]);
-    return matchesSearch && matchesTab;
+    
+    const matchesTab = activeTab === 'All Status' || 
+                      (activeTab === 'In-session' && (patient.status === 'IN-SESSION' || patient.status === 'In-session')) ||
+                      (activeTab === 'Waiting' && patient.status === 'Waiting') ||
+                      (activeTab === 'Discharged' && patient.status === 'Discharged');
+
+    const matchesDept = activeDeptFilter === 'All Departments' || patient.dept === activeDeptFilter;
+    
+    return matchesSearch && matchesTab && matchesDept;
   });
 
   if (loading) {
@@ -72,11 +80,12 @@ export default function PatientsPage() {
         <div className="bg-white/40 backdrop-blur-md rounded-[32px] p-4 border border-white/40 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-3">
-              {['All Departments', 'Cardiology', 'Neurology', 'Pediatrics', 'Emergency'].map((dept, i) => (
+              {['All Departments', 'Cardiology', 'Neurology', 'Pediatrics', 'Emergency'].map((dept) => (
                 <button 
                   key={dept} 
+                  onClick={() => setActiveDeptFilter(dept)}
                   className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-semibold transition-all border ${
-                    i === 0 
+                    activeDeptFilter === dept 
                     ? 'bg-white border-ash-grey-700 text-dark-slate-grey-500 shadow-sm' 
                     : 'bg-transparent border-ash-grey-700/30 text-charcoal-blue-600 hover:bg-white/50'
                   }`}

@@ -45,8 +45,7 @@ export const useDepartments = () => {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const deptList: Department[] = [];
       snapshot.forEach((doc) => {
-        const data = doc.data() as Department;
-        deptList.push(data);
+        deptList.push({ ...doc.data() as any, id: doc.id });
       });
       setDepartments(deptList);
       setLoading(false);

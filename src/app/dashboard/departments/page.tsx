@@ -20,13 +20,19 @@ import {
 export default function DepartmentsPage() {
   const { departments, loading, iconMap } = useDepartments();
   const [activeCategory, setActiveCategory] = useState('All Departments');
+  const [activeStatus, setActiveStatus] = useState('All');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedDeptDetails, setSelectedDeptDetails] = useState<any>(null);
 
-  const filteredDepts = departments.filter(dept => 
-    activeCategory === 'All Departments' || dept.category === activeCategory
-  );
+  const filteredDepts = departments.filter(dept => {
+    const matchesCategory = activeCategory === 'All Departments' || dept.category === activeCategory;
+    const matchesStatus = activeStatus === 'All' || 
+                         (activeStatus === 'Active Only' && dept.status === 'Active') ||
+                         (activeStatus === 'Critical Load' && dept.status === 'Critical') ||
+                         (activeStatus === 'Staffing Highlights' && dept.pending > 40);
+    return matchesCategory && matchesStatus;
+  });
 
   if (loading) {
     // ... (same loading state)
@@ -79,8 +85,16 @@ export default function DepartmentsPage() {
               </div>
             )}
           </div>
-          {['Active Only', 'Critical Load', 'Staffing Highlights'].map((f) => (
-            <button key={f} className="px-6 py-3.5 bg-ash-grey-900/40 border border-transparent rounded-2xl text-[11px] font-black uppercase tracking-wider text-charcoal-blue-600 hover:bg-white hover:border-ash-grey-700/50 transition-all">
+          {['All', 'Active Only', 'Critical Load', 'Staffing Highlights'].map((f) => (
+            <button 
+              key={f} 
+              onClick={() => setActiveStatus(f)}
+              className={`px-6 py-3.5 border rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all ${
+                activeStatus === f 
+                ? 'bg-white border-ash-grey-700 text-dark-slate-grey-500 shadow-sm' 
+                : 'bg-ash-grey-900/40 border-transparent text-charcoal-blue-600 hover:bg-white hover:border-ash-grey-700/50'
+              }`}
+            >
               {f}
             </button>
           ))}

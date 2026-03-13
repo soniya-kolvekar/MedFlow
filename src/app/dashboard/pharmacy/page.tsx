@@ -5,12 +5,13 @@ import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { usePatients, Patient } from '@/hooks/usePatients';
 import { useInventory } from '@/hooks/useInventory';
 import { seedDatabase } from '@/lib/seed';
+import { db } from '@/lib/firebase';
 import Modal from '@/components/ui/Modal';
 import PatientForm from '@/components/forms/PatientForm';
+import { doc, updateDoc, increment } from 'firebase/firestore';
 import { 
   Plus, 
   ChevronRight, 
-  MoreHorizontal, 
   Clock, 
   AlertCircle,
   CheckCircle2,
@@ -21,16 +22,16 @@ import {
   Database,
   Loader2,
   ChevronDown,
-  User,
-  History,
+  User as LucideUser,
   ClipboardList,
-  Activity
+  Activity,
+  FileSearch
 } from 'lucide-react';
 
 export default function PharmacyDashboard() {
   const { patients, loading: loadingPatients } = usePatients();
   const { inventory, loading: loadingInventory } = useInventory();
-  const [selectedPatientId, setSelectedPatientId] = useState('');
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSeeding, setIsSeeding] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -39,6 +40,12 @@ export default function PharmacyDashboard() {
   const [activeDeptFilter, setActiveDeptFilter] = useState('All Departments');
   const [activeStatusFilter, setActiveStatusFilter] = useState('All');
   const [isDeptDropdownOpen, setIsDeptDropdownOpen] = useState(false);
+  
+  // Advanced Workflow State
+  const [fulfillmentType, setFulfillmentType] = useState<'Offline' | 'Ship-to-Home'>('Offline');
+  const [aiCheckResults, setAiCheckResults] = useState<any>(null);
+  const [isAiChecking, setIsAiChecking] = useState(false);
+  const [showInvoice, setShowInvoice] = useState(false);
 
   // Set initial selection when data loads
   useEffect(() => {
@@ -47,13 +54,82 @@ export default function PharmacyDashboard() {
     }
   }, [patients, selectedPatientId]);
 
+  const handlePatientSelect = (id: string) => {
+    setSelectedPatientId(id);
+    // Auto-scroll to processing panel smoothly
+    setTimeout(() => {
+      document.getElementById('processing-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
+
   const handleSeed = async () => {
     setIsSeeding(true);
     await seedDatabase();
     setIsSeeding(false);
   };
 
-  const activePatient = patients.find(p => p.id === selectedPatientId) || patients[0];
+  const activePatient = patients.find(p => p.id === selectedPatientId);
+
+  const runAIInventoryCheck = () => {
+    if (!activePatient || !activePatient.items) return;
+    setIsAiChecking(true);
+    
+    // Simulate AI/OCR Analytics
+    setTimeout(() => {
+      const results = activePatient.items!.map((item: any) => {
+        const invItem = inventory.find((i: any) => i.name.toLowerCase().includes(item.name.toLowerCase().split(' ')[0]));
+        return {
+          ...item,
+          available: invItem ? invItem.stock >= parseInt(item.qty) : false,
+          currentStock: invItem ? invItem.stock : 0,
+          price: invItem ? invItem.price : 10.00
+        };
+      });
+      setAiCheckResults(results);
+      setIsAiChecking(false);
+    }, 1500);
+  };
+
+  const calculateTotal = () => {
+    if (!aiCheckResults) return 0;
+    return aiCheckResults.reduce((sum: number, item: any) => sum + (item.price * (parseInt(item.qty) || 1)), 0);
+  };
+
+  const handleDispense = async () => {
+    if (!activePatient || !aiCheckResults) return;
+
+    try {
+      // 1. Update Inventory Stock for each item
+      for (const res of aiCheckResults) {
+        if (res.available) {
+          const invItem = (inventory as any[]).find((i: any) => i.name.toLowerCase().includes(res.name.toLowerCase().split(' ')[0]));
+          if (invItem && (invItem as any).id) {
+            const invDocRef = doc(db, 'inventory', (invItem as any).id);
+            await updateDoc(invDocRef, {
+              stock: increment(-parseInt(res.qty))
+            });
+          }
+        }
+      }
+
+      // 2. Update Patient Status
+      const patientDocRef = doc(db, 'patients', activePatient.id);
+      await updateDoc(patientDocRef, {
+        status: 'Completed',
+        fulfillment: fulfillmentType,
+        totalBilled: calculateTotal(),
+        resolvedAt: new Date().toISOString()
+      });
+
+      // 3. Reset local state
+      setAiCheckResults(null);
+      setShowInvoice(false);
+      setSelectedPatientId(null);
+      
+    } catch (error) {
+      console.error("Error dispensing prescription:", error);
+    }
+  };
 
   if (loadingPatients || loadingInventory) {
     return (
@@ -186,7 +262,7 @@ export default function PharmacyDashboard() {
                   return (
                     <div 
                       key={patient.id}
-                      onClick={() => setSelectedPatientId(patient.id)}
+                      onClick={() => handlePatientSelect(patient.id)}
                       className={`group relative flex items-center justify-between p-5 rounded-2xl border transition-all cursor-pointer ${
                         isActive 
                           ? 'bg-white border-deep-teal-500 shadow-xl shadow-deep-teal-500/5 ring-1 ring-deep-teal-500/20' 
@@ -195,7 +271,7 @@ export default function PharmacyDashboard() {
                     >
                       <div className="flex items-center gap-4">
                         <div className={`h-12 w-12 rounded-xl flex items-center justify-center transition-colors ${isActive ? 'bg-deep-teal-500 text-white' : 'bg-ash-grey-800 text-deep-teal-600'}`}>
-                          <UserIcon className="h-6 w-6" />
+                          <LucideUser className="h-6 w-6" />
                         </div>
                         <div>
                           <h3 className={`font-bold transition-colors ${isActive ? 'text-dark-slate-grey-500' : 'text-dark-slate-grey-500/70'}`}>{patient.name}</h3>
@@ -236,7 +312,7 @@ export default function PharmacyDashboard() {
             </section>
 
             {/* Processing Component */}
-            <section className="bg-white rounded-[32px] p-8 shadow-2xl shadow-charcoal-blue-500/5 border border-ash-grey-700/30 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <section id="processing-panel" className="bg-white rounded-[32px] p-8 shadow-2xl shadow-charcoal-blue-500/5 border border-ash-grey-700/30 animate-in fade-in slide-in-from-bottom-4 duration-500">
               {activePatient ? (
                 <>
                   <div className="flex items-center justify-between mb-8">
@@ -247,9 +323,59 @@ export default function PharmacyDashboard() {
                       <p className="text-sm text-charcoal-blue-700 mt-1 font-medium">Verify stock level and fill prescription.</p>
                     </div>
                     <div className="flex gap-3">
-                      <button className="px-6 py-2.5 rounded-xl border-2 border-ash-grey-700/50 font-bold text-charcoal-blue-500 hover:bg-ash-grey-900 transition-colors active:scale-95">On Hold</button>
-                      <button className="px-6 py-2.5 rounded-xl bg-dark-slate-grey-500 text-white font-bold hover:bg-charcoal-blue-600 transition-all shadow-lg shadow-dark-slate-grey-500/10 active:scale-95">Mark Complete</button>
+                      <div className="flex bg-ash-grey-900 p-1 rounded-xl border border-ash-grey-800">
+                        <button 
+                          onClick={() => setFulfillmentType('Offline')}
+                          className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${fulfillmentType === 'Offline' ? 'bg-white text-dark-slate-grey-500 shadow-sm' : 'text-charcoal-blue-700 opacity-40'}`}
+                        >
+                          Offline
+                        </button>
+                        <button 
+                          onClick={() => setFulfillmentType('Ship-to-Home')}
+                          className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${fulfillmentType === 'Ship-to-Home' ? 'bg-white text-dark-slate-grey-500 shadow-sm' : 'text-charcoal-blue-700 opacity-40'}`}
+                        >
+                          Ship-to-Home
+                        </button>
+                      </div>
+                      <button 
+                        onClick={runAIInventoryCheck}
+                        disabled={isAiChecking}
+                        className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-deep-teal-500 text-white font-bold hover:bg-deep-teal-600 transition-all shadow-lg shadow-deep-teal-500/10 active:scale-95 disabled:opacity-50"
+                      >
+                        {isAiChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
+                        Run AI Check
+                      </button>
                     </div>
+                  </div>
+
+                  <div className="mb-8 p-6 bg-ash-grey-900/40 rounded-[28px] border-2 border-dashed border-ash-grey-800 flex flex-col items-center justify-center text-center">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className={`h-12 w-12 rounded-2xl flex items-center justify-center ${aiCheckResults ? 'bg-green-500 text-white' : 'bg-ash-grey-700 text-charcoal-blue-500'}`}>
+                        {aiCheckResults ? <CheckCircle2 className="h-6 w-6" /> : <FileSearch className="h-6 w-6" />}
+                      </div>
+                      <div className="text-left">
+                        <h4 className="text-sm font-black text-dark-slate-grey-500">AI Inventory Analytics</h4>
+                        <p className="text-[10px] text-charcoal-blue-700 font-black uppercase tracking-widest opacity-40">
+                          {aiCheckResults ? 'Verification Complete' : 'Waiting for OCR Trigger'}
+                        </p>
+                      </div>
+                    </div>
+                    {aiCheckResults && (
+                      <div className="w-full grid grid-cols-3 gap-4 mt-2">
+                        <div className="bg-white p-3 rounded-xl border border-ash-grey-800">
+                          <p className="text-[9px] font-black text-charcoal-blue-700 opacity-40 uppercase tracking-widest mb-1">Status</p>
+                          <p className="text-xs font-bold text-green-600 uppercase">Ready to Fill</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-ash-grey-800">
+                          <p className="text-[9px] font-black text-charcoal-blue-700 opacity-40 uppercase tracking-widest mb-1">Method</p>
+                          <p className="text-xs font-bold text-dark-slate-grey-500 uppercase">{fulfillmentType}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-ash-grey-800">
+                          <p className="text-[9px] font-black text-charcoal-blue-700 opacity-40 uppercase tracking-widest mb-1">Items</p>
+                          <p className="text-xs font-bold text-dark-slate-grey-500 uppercase">{aiCheckResults.filter((r:any) => r.available).length}/{aiCheckResults.length}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="overflow-hidden">
@@ -263,7 +389,7 @@ export default function PharmacyDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-ash-grey-800/50">
-                        {activePatient?.items?.map((med: any, i: number) => (
+                        {(aiCheckResults || activePatient?.items)?.map((med: any, i: number) => (
                           <tr key={i} className="group hover:bg-ash-grey-900/40 transition-colors">
                             <td className="py-5">
                               <div className="flex items-center gap-3">
@@ -274,34 +400,75 @@ export default function PharmacyDashboard() {
                             <td className="py-5 text-sm font-medium text-charcoal-blue-600">{med.dosage}</td>
                             <td className="py-5">
                               <div className="flex items-center gap-2">
-                                <span className="font-bold text-sm text-charcoal-blue-500">{med.qty}</span>
-                                {med.status.includes('Stock') ? (
-                                  <div className="flex items-center gap-1 text-[9px] font-black tracking-widest uppercase text-green-600 bg-green-100 px-2.5 py-1 rounded-full">
-                                    <CheckCircle2 className="h-3 w-3" />
-                                    {med.status}
+                                {aiCheckResults ? (
+                                  <div className={`flex items-center gap-1 text-[9px] font-black tracking-widest uppercase px-2.5 py-1 rounded-full ${med.available ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100'}`}>
+                                    {med.available ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
+                                    {med.available ? `Available (${med.currentStock})` : `Out of Stock (${med.currentStock})`}
                                   </div>
                                 ) : (
-                                  <div className="flex items-center gap-1 text-[9px] font-black tracking-widest uppercase text-red-600 bg-red-100 px-2.5 py-1 rounded-full">
-                                    <AlertCircle className="h-3 w-3" />
-                                    {med.status}
-                                  </div>
+                                  <span className="font-bold text-sm text-charcoal-blue-500">{med.qty} Units</span>
                                 )}
                               </div>
                             </td>
                             <td className="py-5 text-right">
-                              <button className="p-2 text-charcoal-blue-700 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all group-hover:scale-110">
-                                {med.status.includes('Low') ? (
-                                  <span className="text-[10px] font-black border border-red-500 px-3 py-1.5 rounded-lg text-red-500 bg-red-50">REORDER NOW</span>
-                                ) : (
+                              {aiCheckResults ? (
+                                <span className="font-bold text-sm text-dark-slate-grey-500">${(med.price * (parseInt(med.qty) || 1)).toFixed(2)}</span>
+                              ) : (
+                                <button className="p-2 text-charcoal-blue-700 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all group-hover:scale-110">
                                   <Trash2 className="h-4 w-4" />
-                                )}
-                              </button>
+                                </button>
+                              )}
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
+
+                  {aiCheckResults && (
+                    <div className="mt-8 border-t border-ash-grey-800 pt-8 animate-in slide-in-from-bottom-2 duration-500">
+                      <div className="flex items-end justify-between bg-dark-slate-grey-500 p-8 rounded-[32px] text-white shadow-xl shadow-dark-slate-grey-500/20">
+                        <div>
+                          <h4 className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Real-time Billing Info</h4>
+                          <p className="text-sm font-bold opacity-80">Method: {fulfillmentType}</p>
+                          <div className="mt-4 flex items-center gap-2">
+                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${showInvoice ? 'bg-green-500 text-white' : 'bg-orange-500 text-white animate-pulse'}`}>
+                              {showInvoice ? 'Payment Verified' : 'Awaiting Payment'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Total Amount</p>
+                          <h3 className="text-4xl font-black">${calculateTotal().toFixed(2)}</h3>
+                          <button 
+                            onClick={() => setShowInvoice(true)}
+                            className="mt-4 px-6 py-2 bg-white text-dark-slate-grey-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-ash-grey-900 transition-all active:scale-95"
+                          >
+                            {showInvoice ? 'View Invoice' : 'Verify Payment'}
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-6 flex gap-4">
+                        <button 
+                          onClick={() => {
+                            setAiCheckResults(null); 
+                            setShowInvoice(false);
+                          }}
+                          className="flex-1 py-4 rounded-2xl border-2 border-ash-grey-700 font-bold text-charcoal-blue-700 hover:bg-ash-grey-900 transition-all active:scale-95"
+                        >
+                          Discard & Reset
+                        </button>
+                        <button 
+                          onClick={handleDispense}
+                          disabled={!showInvoice}
+                          className="flex-[2] py-4 rounded-2xl bg-dark-slate-grey-500 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-dark-slate-grey-500/10 hover:bg-charcoal-blue-600 transition-all active:scale-95 disabled:opacity-30"
+                        >
+                          Dispense & Mark Complete
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-20 space-y-4">
@@ -337,8 +504,8 @@ export default function PharmacyDashboard() {
             <section className="bg-ash-grey-500/10 backdrop-blur-sm rounded-[32px] p-8 border border-white/40 shadow-xl shadow-charcoal-blue-500/5">
               <div className="flex items-center justify-between mb-8">
                 <h3 className="text-xl font-bold text-dark-slate-grey-500">Inventory Status</h3>
-                <button className="p-1 hover:bg-white/50 rounded-lg transition-colors">
-                  <MoreHorizontal className="h-5 w-5 text-charcoal-blue-700" />
+                <button className="p-1 hover:bg-white/50 rounded-lg transition-colors text-charcoal-blue-700 text-lg font-bold leading-none">
+                  ···
                 </button>
               </div>
 

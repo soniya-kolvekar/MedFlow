@@ -35,7 +35,7 @@ export const usePatients = () => {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const patientList: Patient[] = [];
       snapshot.forEach((doc) => {
-        patientList.push(doc.data() as Patient);
+        patientList.push({ ...doc.data(), id: doc.id } as Patient);
       });
       setPatients(patientList);
       setLoading(false);
