@@ -31,6 +31,8 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
     const [duration, setDuration] = useState(0);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const socketRef = useRef<WebSocket | null>(null);
+    const streamRef = useRef<MediaStream | null>(null);
 
     // Sync with Firestore
     useEffect(() => {
@@ -57,79 +59,92 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
 
     const startRecording = async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            // 1. Initialize WebSocket via Backend Relay
+            const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const wsUrl = `${backendUrl.replace('http', 'ws')}/ws/translate?target_language=en`;
+            
+            socketRef.current = new WebSocket(wsUrl);
 
-            // Try to find a supported mime type that Sarvam likes
+            socketRef.current.onmessage = async (event) => {
+                const data = JSON.parse(event.data);
+                
+                // Sarvam Streaming responses
+                if (data.translated_text) {
+                    setLiveCaption(data.translated_text);
+                    // Update Firestore for live sync
+                    await updateDoc(doc(db, "sessions", sessionId), {
+                        liveCaption: data.translated_text
+                    });
+                }
+
+                if (data.transcript && data.is_final) {
+                    const finalTranscript = data.translated_text || data.transcript;
+                    
+                    const newMessage: TranscriptMessage = {
+                        role: "Doctor",
+                        text: finalTranscript,
+                        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    };
+
+                    await updateDoc(doc(db, "sessions", sessionId), {
+                        messages: arrayUnion(newMessage),
+                        liveCaption: ""
+                    });
+
+                    // Optional: TTS for the final translated sentence
+                    const ttsBase64 = await textToSpeech(finalTranscript, "en-IN");
+                    if (ttsBase64) {
+                        const audio = new Audio(`data:audio/mp3;base64,${ttsBase64}`);
+                        audio.play().catch(err => console.error("TTS Playback Error:", err));
+                    }
+                }
+            };
+
+            socketRef.current.onerror = (err) => {
+                console.error("WebSocket Error:", err);
+            };
+
+            // 2. Start Audio Capture
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            streamRef.current = stream;
+
             const supportedTypes = ['audio/webm', 'audio/webm;codecs=opus', 'audio/ogg;codecs=opus'];
             const mimeType = supportedTypes.find(type => MediaRecorder.isTypeSupported(type)) || 'audio/webm';
 
             const recorder = new MediaRecorder(stream, { mimeType });
             mediaRecorderRef.current = recorder;
 
-            recorder.ondataavailable = async (e) => {
-                if (e.data.size > 0) {
-                    // Call STT with current input language (e.g., Konkani)
-                    // If inputLanguage is Konkani, the service will return the English translation
-                    const transcript = await transcribeAudio(e.data, inputLanguage);
-
-                    if (transcript) {
-                        setLiveCaption(transcript);
-                        await updateDoc(doc(db, "sessions", sessionId), {
-                            liveCaption: transcript
-                        });
-
-                        // Play back the translated text as Speech (TTS)
-                        // We do this if it's a sub-sentence or full sentence
-                        const ttsBase64 = await textToSpeech(transcript, "en-IN");
-                        if (ttsBase64) {
-                            const audio = new Audio(`data:audio/mp3;base64,${ttsBase64}`);
-                            audio.play().catch(err => console.error("TTS Playback Error:", err));
-                        }
-
-                        // If it's a significant sentence, add to message list
-                        if (transcript.length > 20) {
-                            const newMessage: TranscriptMessage = {
-                                role: "Doctor",
-                                text: transcript,
-                                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                            };
-                            await updateDoc(doc(db, "sessions", sessionId), {
-                                messages: arrayUnion(newMessage)
-                            });
-                        }
-                    }
+            recorder.ondataavailable = (e) => {
+                if (e.data.size > 0 && socketRef.current?.readyState === WebSocket.OPEN) {
+                    socketRef.current.send(e.data);
                 }
             };
 
-            recorder.start();
+            // Start recording in small chunks (100ms for responsiveness)
+            recorder.start(100);
             setIsRecording(true);
-
-            // Periodically stop and start the recorder to get full valid chunks
-            const chunkInterval = setInterval(() => {
-                if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-                    mediaRecorderRef.current.stop();
-                    mediaRecorderRef.current.start();
-                }
-            }, 5000); // 5-second segments
 
             intervalRef.current = setInterval(() => {
                 setDuration(prev => prev + 1);
             }, 1000);
 
-            // Store chunkInterval to clear it later
-            (window as any)._medflow_chunk_interval = chunkInterval;
         } catch (err) {
-            console.error("Error accessing microphone:", err);
+            console.error("Error accessing microphone or starting translation:", err);
         }
     };
 
     const stopRecording = () => {
         if (mediaRecorderRef.current) {
             mediaRecorderRef.current.stop();
-            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
         }
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+        }
+        if (socketRef.current) {
+            socketRef.current.close();
+        }
+        
         if (intervalRef.current) clearInterval(intervalRef.current);
-        if ((window as any)._medflow_chunk_interval) clearInterval((window as any)._medflow_chunk_interval);
 
         setIsRecording(false);
         setLiveCaption("");
