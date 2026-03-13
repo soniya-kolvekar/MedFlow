@@ -15,15 +15,26 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url));
   }
 
-  // 3. Role-based routing (Prevent roles from accessing other dashboards)
-  if (role && path.startsWith("/dashboard")) {
-    // Exact match for their own dashboard is fine
-    if (path.startsWith(`/dashboard/${role}`)) {
-      return NextResponse.next();
+  // 3. Role-based routing (Allow shared dashboard pages, protect other role-specific ones)
+  if (role && path.startsWith('/dashboard')) {
+    const roles = ['admin', 'doctor', 'lab', 'patient', 'pharmacy'];
+    const pathSegments = path.split('/').filter(Boolean); // e.g., ["dashboard", "patients"]
+
+    // If it's just /dashboard, redirect to their role dashboard
+    if (pathSegments.length === 1) {
+      return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url));
     }
 
-    // If they try to access another role's dashboard, bounce them back to theirs
-    return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url));
+    // Check if the first segment after /dashboard is another role's restricted dashboard
+    const firstDashSegment = pathSegments[1];
+    
+    // In development mode, allow developers to view ANY dashboard freely to test UI.
+    // In production, enforce role-based redirects.
+    if (process.env.NODE_ENV !== 'development') {
+      if (roles.includes(firstDashSegment) && firstDashSegment !== role) {
+        return NextResponse.redirect(new URL(`/dashboard/${role}`, request.url));
+      }
+    }
   }
 
   return NextResponse.next();

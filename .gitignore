@@ -22,3 +22,7 @@ Thumbs.db
 logs/
 *.log
 tmp/
+node_modules
+.next/
+.env
+next-env.d.ts

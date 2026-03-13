@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 interface AuthContextType {
   user: User | null;
   role: string | null;
+  patientId: string | null;
   loading: boolean;
   logout: () => Promise<void>;
   updateRoleInCookie: (newRole: string) => void;
@@ -23,6 +24,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   role: null,
+  patientId: null,
   loading: true,
   logout: async () => { },
   updateRoleInCookie: () => { },
@@ -31,6 +33,7 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string | null>(null);
+  const [patientId, setPatientId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -51,9 +54,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const docRef = doc(db, "users", firebaseUser.uid);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
-            const userRole = docSnap.data().role;
+            const data = docSnap.data();
+            const userRole = data.role;
             setRole(userRole);
             updateRoleInCookie(userRole);
+            // Also fetch patientId if the user is a patient
+            setPatientId(data.patientId || null);
           } else {
             console.log("No user document found!");
             setRole(null);
@@ -67,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUser(null);
         setRole(null);
+        setPatientId(null);
         updateRoleInCookie(null);
       }
       setLoading(false);
@@ -86,9 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider
-      value={{ user, role, loading, logout, updateRoleInCookie }}
-    >
+    <AuthContext.Provider value={{ user, role, patientId, loading, logout, updateRoleInCookie }}>
       {children}
     </AuthContext.Provider>
   );
