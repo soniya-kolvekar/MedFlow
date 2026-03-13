@@ -23,13 +23,17 @@ interface TranscriptMessage {
     translation?: string;
 }
 
-export default function ClinicalTranscription({ sessionId = "demo-session-123" }: { sessionId?: string }) {
+export default function ClinicalTranscription({ sessionId: initialSessionId }: { sessionId?: string }) {
+    const [sessionId, setSessionId] = useState(initialSessionId || `session-${Date.now()}`);
     const [isRecording, setIsRecording] = useState(false);
     const [messages, setMessages] = useState<TranscriptMessage[]>([]);
     const [liveCaption, setLiveCaption] = useState("");
-    const [inputLanguage, setInputLanguage] = useState("kok-IN"); // Default to Konkani per user request
+    const [inputLanguage, setInputLanguage] = useState("hi-IN"); // Language spoken by user
+    const [targetLanguage, setTargetLanguage] = useState("en-IN"); // Language to translate into (Subtitles & Speech)
     const [duration, setDuration] = useState(0);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const processorRef = useRef<ScriptProcessorNode | null>(null);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const socketRef = useRef<WebSocket | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
@@ -61,11 +65,16 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
         try {
             // 1. Initialize WebSocket via Backend Relay
             const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-            const wsUrl = `${backendUrl.replace('http', 'ws')}/ws/translate?target_language=en`;
+            const wsUrl = `${backendUrl.replace('http', 'ws')}/ws/translate?source_language=${inputLanguage}&target_language=${targetLanguage}`;
             
             socketRef.current = new WebSocket(wsUrl);
 
+            socketRef.current.onopen = () => {
+                console.log("WebSocket Relay connected");
+            };
+            
             socketRef.current.onmessage = async (event) => {
+                console.log("WS Received:", event.data);
                 const data = JSON.parse(event.data);
                 
                 // Sarvam Streaming responses
@@ -91,8 +100,8 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
                         liveCaption: ""
                     });
 
-                    // Optional: TTS for the final translated sentence
-                    const ttsBase64 = await textToSpeech(finalTranscript, "en-IN");
+                    // Trigger TTS in the target language
+                    const ttsBase64 = await textToSpeech(finalTranscript, targetLanguage);
                     if (ttsBase64) {
                         const audio = new Audio(`data:audio/mp3;base64,${ttsBase64}`);
                         audio.play().catch(err => console.error("TTS Playback Error:", err));
@@ -104,24 +113,35 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
                 console.error("WebSocket Error:", err);
             };
 
-            // 2. Start Audio Capture
+            // 2. Start Audio Capture (Raw PCM)
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             streamRef.current = stream;
 
-            const supportedTypes = ['audio/webm', 'audio/webm;codecs=opus', 'audio/ogg;codecs=opus'];
-            const mimeType = supportedTypes.find(type => MediaRecorder.isTypeSupported(type)) || 'audio/webm';
+            const audioContext = new AudioContext({ sampleRate: 16000 });
+            audioContextRef.current = audioContext;
+            
+            const source = audioContext.createMediaStreamSource(stream);
+            const processor = audioContext.createScriptProcessor(4096, 1, 1);
+            processorRef.current = processor;
 
-            const recorder = new MediaRecorder(stream, { mimeType });
-            mediaRecorderRef.current = recorder;
+            processor.onaudioprocess = (e) => {
+                const inputData = e.inputBuffer.getChannelData(0);
+                
+                // Convert Float32 to Int16 PCM
+                const pcmData = new Int16Array(inputData.length);
+                for (let i = 0; i < inputData.length; i++) {
+                    const s = Math.max(-1, Math.min(1, inputData[i]));
+                    pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                }
 
-            recorder.ondataavailable = (e) => {
-                if (e.data.size > 0 && socketRef.current?.readyState === WebSocket.OPEN) {
-                    socketRef.current.send(e.data);
+                if (socketRef.current?.readyState === WebSocket.OPEN) {
+                    socketRef.current.send(pcmData.buffer);
                 }
             };
 
-            // Start recording in small chunks (100ms for responsiveness)
-            recorder.start(100);
+            source.connect(processor);
+            processor.connect(audioContext.destination);
+
             setIsRecording(true);
 
             intervalRef.current = setInterval(() => {
@@ -134,8 +154,13 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
     };
 
     const stopRecording = () => {
-        if (mediaRecorderRef.current) {
-            mediaRecorderRef.current.stop();
+        if (processorRef.current) {
+            processorRef.current.disconnect();
+            processorRef.current = null;
+        }
+        if (audioContextRef.current) {
+            audioContextRef.current.close();
+            audioContextRef.current = null;
         }
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
@@ -149,6 +174,18 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
         setIsRecording(false);
         setLiveCaption("");
         updateDoc(doc(db, "sessions", sessionId), { liveCaption: "" });
+    };
+
+    const clearHistory = async () => {
+        if (confirm("Are you sure you want to clear all transcription records for this session?")) {
+            const sessionRef = doc(db, "sessions", sessionId);
+            await updateDoc(sessionRef, {
+                messages: [],
+                liveCaption: ""
+            });
+            setMessages([]);
+            setLiveCaption("");
+        }
     };
 
     const formatTime = (seconds: number) => {
@@ -185,21 +222,45 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
                                 {isRecording ? "Live" : "Standby"}
                             </span>
                             <span className="w-1 h-1 bg-ash-grey-300 rounded-full" />
-                            <select
-                                value={inputLanguage}
-                                onChange={(e) => setInputLanguage(e.target.value)}
-                                className="bg-transparent text-[11px] font-bold text-deep-teal-600 uppercase tracking-wider focus:outline-none cursor-pointer hover:text-deep-teal-800 transition-colors"
-                            >
-                                <option value="kok-IN">Konkani</option>
-                                <option value="en-IN">English</option>
-                                <option value="hi-IN">Hindi</option>
-                                <option value="mr-IN">Marathi</option>
-                            </select>
+                            <div className="flex flex-col gap-1">
+                                <span className="text-[9px] font-black text-ash-grey-600 uppercase tracking-widest">Input</span>
+                                <select
+                                    value={inputLanguage}
+                                    onChange={(e) => setInputLanguage(e.target.value)}
+                                    className="bg-transparent text-[11px] font-bold text-deep-teal-600 uppercase tracking-wider focus:outline-none cursor-pointer hover:text-deep-teal-800 transition-colors"
+                                >
+                                    <option value="en-IN">English</option>
+                                    <option value="hi-IN">Hindi</option>
+                                    <option value="kok-IN">Konkani</option>
+                                    <option value="mr-IN">Marathi</option>
+                                </select>
+                            </div>
+                            <div className="w-px h-6 bg-ash-grey-600/30 mx-1"></div>
+                            <div className="flex flex-col gap-1">
+                                <span className="text-[9px] font-black text-ash-grey-600 uppercase tracking-widest">Output & Voice</span>
+                                <select
+                                    value={targetLanguage}
+                                    onChange={(e) => setTargetLanguage(e.target.value)}
+                                    className="bg-transparent text-[11px] font-bold text-deep-teal-600 uppercase tracking-wider focus:outline-none cursor-pointer hover:text-deep-teal-800 transition-colors"
+                                >
+                                    <option value="hi-IN">Hindi</option>
+                                    <option value="en-IN">English</option>
+                                    <option value="ta-IN">Tamil</option>
+                                    <option value="bn-IN">Bengali</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div className="flex gap-3">
+                    <button
+                        onClick={clearHistory}
+                        className="px-4 py-2.5 rounded-xl text-sm font-bold text-ash-grey-600 hover:text-red-500 hover:bg-red-50 transition-all flex items-center gap-2 active:scale-95"
+                        title="Clear all records"
+                    >
+                        Clear History
+                    </button>
                     {!isRecording ? (
                         <button
                             onClick={startRecording}
@@ -248,16 +309,6 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
                                 <p className="text-dark-slate-grey-500 text-[15px] leading-relaxed font-medium">
                                     {msg.text}
                                 </p>
-                                {msg.translation && (
-                                    <div className="mt-3 pt-3 border-t border-muted-teal-200/40">
-                                        <p className="text-[10px] font-bold text-muted-teal-600 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                                            <Globe className="w-3 h-3" /> Spanish Translation
-                                        </p>
-                                        <p className="text-dark-slate-grey-800 text-sm italic">
-                                            "{msg.translation}"
-                                        </p>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </motion.div>
@@ -286,51 +337,18 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
                 )}
             </AnimatePresence>
 
-            {/* Bottom Status Bar */}
             <div className="absolute bottom-6 left-6 right-6 bg-ash-grey-800/90 backdrop-blur-lg rounded-2xl p-4 flex items-center justify-between border border-ash-grey-700/50 shadow-lg shrink-0 z-10 transition-all">
                 <div className="flex items-center gap-8 pl-2">
                     <div>
                         <p className="text-[10px] font-bold text-dark-slate-grey-800 uppercase tracking-wider mb-0.5">
-                            Queue
-                        </p>
-                        <div className="flex items-baseline gap-1.5">
-                            <span className="text-xl font-bold text-dark-slate-grey-500">
-                                02
-                            </span>
-                            <span className="text-sm font-semibold text-dark-slate-grey-800">
-                                / 08
-                            </span>
-                            <Users className="w-4 h-4 text-dark-slate-grey-800 ml-1" />
-                        </div>
-                    </div>
-
-                    <div className="w-px h-8 bg-ash-grey-600/50"></div>
-
-                    <div>
-                        <p className="text-[10px] font-bold text-dark-slate-grey-800 uppercase tracking-wider mb-0.5">
-                            {isRecording ? "Duration" : "Session Time"}
+                            {isRecording ? "Duration" : "Session End Time"}
                         </p>
                         <div className="flex items-baseline gap-2">
                             <span className={`text-xl font-bold tracking-tight transition-colors ${isRecording ? 'text-deep-teal-500' : 'text-dark-slate-grey-500'}`}>
-                                {isRecording ? formatTime(duration) : "12:45"}
+                                {isRecording ? formatTime(duration) : formatTime(duration)}
                             </span>
                             <Clock className={`w-4 h-4 ${isRecording ? 'text-deep-teal-500' : 'text-dark-slate-grey-800'}`} />
                         </div>
-                    </div>
-                </div>
-
-                <div className="bg-muted-teal-100 rounded-xl p-3 px-5 flex items-center gap-4 cursor-pointer hover:bg-muted-teal-200 transition-all border border-muted-teal-200 shadow-sm hover:shadow-md active:translate-y-0 relative overflow-hidden group">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-deep-teal-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="text-right">
-                        <p className="text-[10px] font-extrabold text-deep-teal-600 uppercase tracking-wider mb-0.5">
-                            Next Up
-                        </p>
-                        <p className="text-sm font-bold text-dark-slate-grey-500 leading-tight">
-                            Maria Garcia
-                        </p>
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-deep-teal-500 text-white flex items-center justify-center shadow-md shadow-deep-teal-500/30 group-hover:scale-110 transition-transform">
-                        <ChevronRight className="w-5 h-5 ml-0.5" />
                     </div>
                 </div>
             </div>

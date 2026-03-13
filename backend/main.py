@@ -7,6 +7,7 @@ import requests
 import json
 import asyncio
 import websockets
+import base64
 from dotenv import load_dotenv
 from typing import Optional
 from models import TTSRequest
@@ -72,46 +73,107 @@ async def text_to_speech(request: TTSRequest):
         return {"error": str(e)}, 500
         
 @app.websocket("/ws/translate")
-async def translate_websocket_relay(websocket: WebSocket, target_language: str = "en"):
+async def translate_websocket_relay(websocket: WebSocket, source_language: str = "en-IN", target_language: str = "hi-IN"):
     """
     WebSocket relay to Sarvam AI Streaming STT-Translate API
     """
     await websocket.accept()
     
-    sarvam_url = "wss://api.sarvam.ai/speech-to-text-translate"
+    # Use standard STT endpoint for transcription
+    sarvam_url = (
+        f"wss://api.sarvam.ai/speech-to-text/ws?"
+        f"model=saaras:v3&"
+        f"language-code={source_language}&"
+        f"mode=transcribe&" # Use transcribe mode to get the original language
+        f"input_audio_codec=audio/wav&" 
+        f"sample_rate=16000"
+    )
+    
     headers = {
         "api-subscription-key": SARVAM_API_KEY
     }
 
     try:
-        async with websockets.connect(sarvam_url, extra_headers=headers) as sarvam_ws:
-            # Send initial configuration to Sarvam
-            config = {
-                "action": "start",
-                "target_language_code": f"{target_language}-IN",
-                "model": "saarika:v1" # Example model, should verify current streaming model name
-            }
-            await sarvam_ws.send(json.dumps(config))
+        async with websockets.connect(sarvam_url, additional_headers=headers) as sarvam_ws:
+            print(f"Connected to Sarvam STT relay for Bi-directional Translation")
 
             async def receive_from_client():
                 try:
                     while True:
                         data = await websocket.receive_bytes()
-                        # Wrap binary data in Sarvam format if required, 
-                        # but usually streaming APIs take raw bytes after start
-                        await sarvam_ws.send(data)
+                        # print(f"Client -> Sarvam: {len(data)} bytes")
+                        payload = {
+                            "audio": {
+                                "data": base64.b64encode(data).decode('utf-8'),
+                                "sample_rate": "16000",
+                                "encoding": "audio/wav" 
+                            }
+                        }
+                        await sarvam_ws.send(json.dumps(payload))
                 except WebSocketDisconnect:
-                    await sarvam_ws.send(json.dumps({"action": "stop"}))
+                    print("Client disconnected")
                 except Exception as e:
-                    print(f"Client receive error: {e}")
+                    print(f"Client relay receive error: {e}")
 
             async def send_to_client():
                 try:
                     async for message in sarvam_ws:
-                        # Message from Sarvam is usually JSON
-                        await websocket.send_text(message)
+                        resp = json.loads(message)
+                        
+                        # Extract payload
+                        payload = resp.get("data", {}) if resp.get("type") == "data" else resp
+                        transcript = payload.get("transcript", "")
+                        is_final = payload.get("is_final", False)
+
+                        if not transcript:
+                            continue
+
+                        # Hide speaker's language if translating
+                        display_text = "" if target_language != source_language else transcript
+                        
+                        # Process translation
+                        if target_language != source_language:
+                            try:
+                                # Translation call
+                                def call_translate():
+                                    api_url = "https://api.sarvam.ai/translate"
+                                    trans_payload = {
+                                        "input": transcript,
+                                        "source_language_code": source_language,
+                                        "target_language_code": target_language
+                                    }
+                                    return requests.post(api_url, json=trans_payload, headers=headers, timeout=1.5)
+
+                                print(f"Translating: '{transcript}'")
+                                res = await asyncio.to_thread(call_translate)
+                                if res.status_code == 200:
+                                    display_text = res.json().get("translated_text", "")
+                                    print(f"Result: '{display_text}'")
+                                else:
+                                    print(f"Translation API Error {res.status_code}: {res.text}")
+                            except Exception as te:
+                                print(f"Translation sync error: {te}")
+                        
+                        # Send to frontend
+                        # If display_text is empty (waiting for translation), we don't send to avoid clearing the last good subtitle
+                        if display_text:
+                            await websocket.send_text(json.dumps({
+                                "translated_text": display_text,
+                                "transcript": transcript,
+                                "is_final": is_final,
+                                "type": "data"
+                            }))
+                        elif is_final:
+                            # If it's final and we somehow have no translation, send original to ensure it's recorded
+                            await websocket.send_text(json.dumps({
+                                "translated_text": transcript,
+                                "transcript": transcript,
+                                "is_final": True,
+                                "type": "data"
+                            }))
+                            
                 except Exception as e:
-                    print(f"Sarvam relay error: {e}")
+                    print(f"Sarvam relay send error: {e}")
 
             # Run both tasks concurrently
             await asyncio.gather(receive_from_client(), send_to_client())

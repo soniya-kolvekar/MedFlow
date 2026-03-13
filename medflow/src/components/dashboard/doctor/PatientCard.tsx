@@ -8,12 +8,12 @@ import { doc, onSnapshot } from "firebase/firestore";
 
 export default function PatientCard({ sessionId = "demo-session-123" }: { sessionId?: string }) {
     const [patient, setPatient] = useState({
-        name: "Samuel Richardson",
-        age: 45,
-        gender: "Male",
-        id: "MR-9021",
-        lastVisit: "Oct 14, 2024 - Follow-up",
-        allergies: ["Penicillin", "Shellfish"]
+        name: "Awaiting Patient...",
+        age: 0,
+        gender: "---",
+        id: "---",
+        lastVisit: "No history found",
+        allergies: []
     });
 
     useEffect(() => {
@@ -83,7 +83,7 @@ export default function PatientCard({ sessionId = "demo-session-123" }: { sessio
                             Critical Alerts
                         </p>
                         <p className="text-sm font-bold text-orange-900">
-                            {patient.allergies.join(", ")}
+                            {patient.allergies.length > 0 ? patient.allergies.join(", ") : "No known allergies"}
                         </p>
                     </div>
                 </div>

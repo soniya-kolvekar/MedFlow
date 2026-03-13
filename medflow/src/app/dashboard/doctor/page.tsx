@@ -37,7 +37,8 @@ const sidebarVariants = {
 } as const;
 
 export default function DoctorDashboard() {
-  const sessionId = "demo-session-123"; // In a real app, this would come from URL or selection
+  // Use a stable but unique ID for the session in this demo
+  const [sessionId] = React.useState(`demo-session-${Date.now()}`);
 
   return (
     <div className="flex min-h-screen bg-ash-grey-900 font-sans selection:bg-muted-teal-200 selection:text-deep-teal-600 overflow-hidden">

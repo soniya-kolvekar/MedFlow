@@ -14,11 +14,9 @@ interface Medication {
 }
 
 export default function SmartPrescription({ sessionId = "demo-session-123" }: { sessionId?: string }) {
-    const [diagnosis, setDiagnosis] = useState("Acute Bronchitis");
-    const [medications, setMedications] = useState<Medication[]>([
-        { id: "1", name: "Amoxicillin", dosage: "500mg", frequency: "TID (3x daily)" }
-    ]);
-    const [patientAllergies, setPatientAllergies] = useState<string[]>(["Penicillin", "Shellfish"]);
+    const [diagnosis, setDiagnosis] = useState("");
+    const [medications, setMedications] = useState<Medication[]>([]);
+    const [patientAllergies, setPatientAllergies] = useState<string[]>([]);
     const [warnings, setWarnings] = useState<{ id: string; msg: string }[]>([]);
 
     // Sync with Firestore
@@ -165,14 +163,7 @@ export default function SmartPrescription({ sessionId = "demo-session-123" }: { 
                         Lab Tests / Imaging
                     </label>
                     <div className="flex flex-wrap gap-2">
-                        <span className="bg-muted-teal-100 text-deep-teal-600 px-3 py-1.5 rounded-xl text-[10px] font-extrabold border border-muted-teal-200/50 flex items-center gap-1.5 shadow-sm">
-                            Chest X-Ray{" "}
-                            <X className="w-3 h-3 cursor-pointer hover:text-deep-teal-800" />
-                        </span>
-                        <span className="bg-muted-teal-100 text-deep-teal-600 px-3 py-1.5 rounded-xl text-[10px] font-extrabold border border-muted-teal-200/50 flex items-center gap-1.5 shadow-sm">
-                            CBC Profile{" "}
-                            <X className="w-3 h-3 cursor-pointer hover:text-deep-teal-800" />
-                        </span>
+                        <p className="text-[10px] text-ash-grey-600 font-medium">No tests ordered today</p>
                     </div>
                 </div>
             </div>
