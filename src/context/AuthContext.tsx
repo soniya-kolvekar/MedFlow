@@ -1,10 +1,16 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../../lib/firebase';
-import { useRouter } from 'next/navigation';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from "react";
+import { User, onAuthStateChanged, signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "../../lib/firebase";
+import { useRouter } from "next/navigation";
 
 interface AuthContextType {
   user: User | null;
@@ -18,8 +24,8 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   role: null,
   loading: true,
-  logout: async () => {},
-  updateRoleInCookie: () => {},
+  logout: async () => { },
+  updateRoleInCookie: () => { },
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -42,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(firebaseUser);
         // Fetch role from Firestore
         try {
-          const docRef = doc(db, 'users', firebaseUser.uid);
+          const docRef = doc(db, "users", firebaseUser.uid);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
             const userRole = docSnap.data().role;
@@ -73,14 +79,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await signOut(auth);
       updateRoleInCookie(null);
-      router.push('/login');
+      router.push("/login");
     } catch (error) {
       console.error("Logout Error:", error);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, loading, logout, updateRoleInCookie }}>
+    <AuthContext.Provider
+      value={{ user, role, loading, logout, updateRoleInCookie }}
+    >
       {children}
     </AuthContext.Provider>
   );
