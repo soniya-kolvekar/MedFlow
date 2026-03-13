@@ -1,15 +1,14 @@
-import React from "react";
 import {
   Home,
   Users,
   Calendar,
   FileText,
-  BarChart2,
   HelpCircle,
   LogOut,
   ShieldPlus,
+  UserCircle
 } from "lucide-react";
-import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Sidebar({ 
   currentView = "dashboard", 
@@ -18,12 +17,14 @@ export default function Sidebar({
   currentView?: string; 
   onViewChange?: (view: string) => void 
 }) {
+  const { logout } = useAuth();
+  
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: Home },
     { id: "patients", label: "Patients", icon: Users },
     { id: "appointments", label: "Appointments", icon: Calendar },
     { id: "reports", label: "Reports", icon: FileText },
-    { id: "analytics", label: "Analytics", icon: BarChart2 },
+    { id: "profile", label: "My Profile", icon: UserCircle },
   ];
 
   return (
@@ -68,7 +69,10 @@ export default function Sidebar({
           <HelpCircle className="w-4 h-4" />
           Support
         </button>
-        <button className="w-full flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400 rounded-2xl font-medium transition-all text-sm">
+        <button 
+          onClick={() => logout()}
+          className="w-full flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-red-500 hover:bg-red-50 rounded-2xl font-medium transition-all text-sm"
+        >
           <LogOut className="w-4 h-4" />
           Logout
         </button>

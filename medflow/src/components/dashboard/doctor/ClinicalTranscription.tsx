@@ -342,7 +342,7 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
     };
 
     return (
-        <div className="bg-white rounded-[2rem] p-6 shadow-sm flex flex-col relative overflow-hidden border border-ash-grey-600/30 h-full max-h-full">
+        <div className="bg-white rounded-[2rem] p-6 shadow-sm flex flex-col relative border border-ash-grey-600/30 min-h-[600px]">
             {/* Header */}
             <div className="flex items-center justify-between pb-4 border-b border-ash-grey-600/50 mb-6 shrink-0">
                 <div className="flex items-center gap-4">
@@ -456,9 +456,9 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
             </div>
 
             {/* Content Area with Summary Sidebar */}
-            <div className="flex-1 flex gap-6 overflow-hidden min-h-0">
+            <div className="flex gap-6 mt-8">
                 {/* Chat Area */}
-                <div className="flex-1 overflow-y-auto pr-4 space-y-8 pb-32 custom-scrollbar scroll-smooth">
+                <div className="flex-1 space-y-8 pb-32 custom-scrollbar scroll-smooth">
                     {messages.length === 0 && !isRecording && (
                         <div className="h-full flex flex-col items-center justify-center text-center opacity-40 py-20">
                             <div className="w-16 h-16 bg-ash-grey-900 rounded-2xl flex items-center justify-center mb-4">

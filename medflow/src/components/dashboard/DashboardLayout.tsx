@@ -4,28 +4,49 @@ import { useAuth } from '@/context/AuthContext';
 import { Bell, Search, User, Menu, Globe, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import Sidebar from './Sidebar';
+import ProfileEdit from './ProfileEdit';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, role } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentLang, setCurrentLang] = useState('English');
   const [langOpen, setLangOpen] = useState(false);
+  const [currentView, setCurrentView] = useState('dashboard');
 
   const languages = ['English', 'Hindi', 'Tamil', 'Telugu', 'Bengali'];
+
+  const renderContent = () => {
+    if (currentView === 'profile') {
+      return (
+        <motion.div
+           initial={{ opacity: 0, y: 20 }}
+           animate={{ opacity: 1, y: 0 }}
+           className="mt-4"
+        >
+          <ProfileEdit />
+        </motion.div>
+      );
+    }
+    return children;
+  };
 
   return (
     <div className="min-h-screen bg-ash-grey-900 flex">
       {/* Desktop Sidebar */}
       <div className="hidden sm:block">
-         <Sidebar />
+         <Sidebar currentView={currentView} onViewChange={setCurrentView} />
       </div>
 
       {/* Mobile Sidebar Overlay */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 sm:hidden">
            <div className="absolute inset-0 bg-charcoal-blue-900/50 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
-           <div className="absolute left-0 top-0 h-full w-64 bg-charcoal-blue-500 transform transition-transform shadow-2xl">
-             <Sidebar />
+           <div className="absolute left-0 top-0 h-full w-64 transform transition-transform shadow-2xl">
+             <Sidebar currentView={currentView} onViewChange={(view) => {
+               setCurrentView(view);
+               setMobileMenuOpen(false);
+             }} />
            </div>
         </div>
       )}
@@ -97,7 +118,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                        {role || 'patient'}
                      </span>
                   </div>
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-deep-teal-500/10 text-deep-teal-600 border border-deep-teal-500/20">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-deep-teal-500/10 text-deep-teal-600 border border-deep-teal-500/20 shadow-sm cursor-pointer hover:bg-deep-teal-500/20 transition-all" onClick={() => setCurrentView('profile')}>
                      <User className="h-5 w-5" />
                   </div>
                </div>
@@ -107,7 +128,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
          {/* Page Content */}
          <main className="flex-1 p-4 sm:p-8">
             <div className="mx-auto max-w-6xl">
-              {children}
+              <AnimatePresence mode="wait">
+                {renderContent()}
+              </AnimatePresence>
             </div>
          </main>
       </div>

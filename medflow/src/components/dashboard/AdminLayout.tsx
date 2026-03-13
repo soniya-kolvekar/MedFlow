@@ -12,28 +12,49 @@ import {
   Settings,
   Search,
   LogOut,
-  Plus
+  Plus,
+  UserCircle
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+import ProfileEdit from '@/components/dashboard/ProfileEdit';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
 const adminNavItems = [
-  { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard/admin' },
-  { name: 'Patients', icon: Users, href: '/dashboard/patients' },
-  { name: 'Appointments', icon: Calendar, href: '/dashboard/appointments' },
-  { name: 'Records', icon: ClipboardList, href: '/dashboard/reports' },
-  { name: 'Analytics', icon: BarChart3, href: '/dashboard/admin' }, // Analytics could be a sub-section
+  { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard/admin' },
+  { id: 'patients', name: 'Patients', icon: Users, href: '/dashboard/admin' },
+  { id: 'appointments', name: 'Appointments', icon: Calendar, href: '/dashboard/admin' },
+  { id: 'reports', name: 'Records', icon: ClipboardList, href: '/dashboard/admin' },
+  { id: 'analytics', name: 'Analytics', icon: BarChart3, href: '/dashboard/admin' },
 ];
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
+  const { logout, user, role } = useAuth();
+  const [currentView, setCurrentView] = useState('dashboard');
+
+  const renderContent = () => {
+    if (currentView === 'profile') {
+      return (
+        <motion.div
+           initial={{ opacity: 0, y: 20 }}
+           animate={{ opacity: 1, y: 0 }}
+           className="mt-4"
+        >
+          <ProfileEdit />
+        </motion.div>
+      );
+    }
+    return children;
+  };
 
   return (
-    <div className="min-h-screen bg-[#F1F8F1] flex">
+    <div className="min-h-screen bg-[#F1F8F1] flex text-dark-slate-grey-500">
       {/* Sidebar */}
       <aside className="w-64 bg-[#2C332F] text-white flex flex-col fixed h-screen">
         <div className="p-8">
@@ -46,12 +67,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
           <nav className="space-y-2">
             {adminNavItems.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive = currentView === item.id;
               return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                <button
+                  key={item.id}
+                  onClick={() => setCurrentView(item.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                     isActive 
                       ? 'bg-[#3D7C65] text-white' 
                       : 'text-gray-400 hover:text-white hover:bg-white/5'
@@ -59,9 +80,20 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 >
                   <item.icon className="h-5 w-5" />
                   <span className="font-medium">{item.name}</span>
-                </Link>
+                </button>
               );
             })}
+            <button
+                  onClick={() => setCurrentView('profile')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                    currentView === 'profile'
+                      ? 'bg-[#3D7C65] text-white' 
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
+            >
+                <Settings className="h-5 w-5" />
+                <span className="font-medium">Account Settings</span>
+            </button>
           </nav>
         </div>
 
@@ -70,7 +102,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             <HelpCircle className="h-5 w-5" />
             <span className="font-medium text-sm text-[12px] uppercase tracking-widest">Support</span>
           </button>
-          <button className="flex items-center gap-3 text-gray-400 hover:text-white transition-colors w-full px-4">
+          <button 
+            onClick={() => logout()}
+            className="flex items-center gap-3 text-gray-400 hover:text-red-400 transition-colors w-full px-4"
+          >
             <LogOut className="h-5 w-5" />
             <span className="font-medium text-sm text-[12px] uppercase tracking-widest">Logout</span>
           </button>
@@ -80,7 +115,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       {/* Main Content */}
       <div className="flex-1 ml-64 flex flex-col min-h-screen">
         {/* Header */}
-        <header className="h-20 flex items-center justify-between px-10">
+        <header className="h-20 flex items-center justify-between px-10 border-b border-ash-grey-700/30">
           <div className="relative w-[500px]">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input 
@@ -95,28 +130,27 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               <button className="hover:text-black transition-colors">
                 <Bell className="h-6 w-6" />
               </button>
-              <button className="hover:text-black transition-colors">
-                <HelpCircle className="h-6 w-6" />
-              </button>
-              <button className="hover:text-black transition-colors">
-                <Settings className="h-6 w-6" />
-              </button>
             </div>
 
-            <div className="flex items-center gap-3 bg-white pl-1 pr-6 py-1 rounded-full shadow-sm border border-gray-100">
-                <div className="h-10 w-10 rounded-full bg-gray-200 overflow-hidden">
-                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Julian" alt="Admin" />
+            <div 
+                className="flex items-center gap-3 bg-white pl-1 pr-6 py-1 rounded-full shadow-sm border border-gray-100 cursor-pointer hover:bg-gray-50 transition-all"
+                onClick={() => setCurrentView('profile')}
+            >
+                <div className="h-10 w-10 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center">
+                    <UserCircle className="h-8 w-8 text-gray-400" />
                 </div>
                 <div className="text-right">
-                    <p className="text-sm font-bold text-gray-800">Dr. Julian Vance</p>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Chief Administrator</p>
+                    <p className="text-sm font-bold text-gray-800">{user?.email?.split('@')[0] || 'Admin'}</p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{role || 'Administrator'}</p>
                 </div>
             </div>
           </div>
         </header>
 
         <main className="flex-1 px-10 py-6">
-          {children}
+          <AnimatePresence mode="wait">
+            {renderContent()}
+          </AnimatePresence>
         </main>
       </div>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FileText, 
@@ -10,31 +10,78 @@ import {
   Mic, 
   Search, 
   Download, 
-  MoreVertical, 
-  Filter,
-  ArrowRight,
   ExternalLink
 } from 'lucide-react';
+import { db } from "@/lib/firebase";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { useAuth } from "@/context/AuthContext";
 
 export default function RecordsPage() {
+  const { patientId } = useAuth();
   const [activeCategory, setActiveCategory] = useState('All');
+  const [records, setRecords] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const categories = [
     { name: 'All', icon: FileText },
     { name: 'Consultations', icon: FileText },
-    { name: 'Lab Reports', icon: FlaskConical },
     { name: 'Prescriptions', icon: Pill },
+    { name: 'Lab Reports', icon: FlaskConical },
     { name: 'Diagnostics', icon: Activity },
     { name: 'Audio Logs', icon: Mic },
   ];
 
-  const records = [
-    { id: 1, title: 'Cardiology Summary', type: 'Consultations', date: 'June 01, 2026', doctor: 'Dr. Mehta', size: '1.2 MB', color: 'text-blue-600 bg-blue-50' },
-    { id: 2, title: 'Full Blood Count', type: 'Lab Reports', date: 'May 28, 2026', doctor: 'Central Lab', size: '2.4 MB', color: 'text-amber-600 bg-amber-50' },
-    { id: 3, title: 'Lisinopril Prescription', type: 'Prescriptions', date: 'June 01, 2026', doctor: 'Dr. Mehta', size: '0.8 MB', color: 'text-purple-600 bg-purple-50' },
-    { id: 4, title: 'ECG Report', type: 'Diagnostics', date: 'May 15, 2026', doctor: 'Dr. Wilson', size: '4.5 MB', color: 'text-deep-teal-600 bg-deep-teal-50' },
-    { id: 5, title: 'Virtual Session Audio', type: 'Audio Logs', date: 'May 10, 2026', doctor: 'Dr. Sarah Jenkins', size: '12.8 MB', color: 'text-red-600 bg-red-50' },
-  ];
+  useEffect(() => {
+    if (!patientId) return;
+
+    const sessionsRef = collection(db, "sessions");
+    const q = query(sessionsRef, where("patientId", "==", patientId));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const allRecords: any[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        const dateStr = data.startTime ? new Date(data.startTime).toLocaleDateString("en-US", {
+           month: "short",
+           day: "numeric",
+           year: "numeric"
+        }) : "Unknown Date";
+
+        // Add Consultation Summary if exists
+        if (data.summaryPdfUrl) {
+          allRecords.push({
+            id: `${doc.id}-summary`,
+            title: `Consultation Summary`,
+            type: 'Consultations',
+            date: dateStr,
+            doctor: 'Dr. Mehta', // Can be dynamic if doctorName is stored
+            size: '0.5 MB',
+            color: 'text-blue-600 bg-blue-50',
+            url: data.summaryPdfUrl
+          });
+        }
+
+        // Add Prescription if exists
+        if (data.prescriptionUrl) {
+          allRecords.push({
+            id: `${doc.id}-prescription`,
+            title: `Medical Prescription`,
+            type: 'Prescriptions',
+            date: dateStr,
+            doctor: 'Dr. Mehta',
+            size: '0.3 MB',
+            color: 'text-purple-600 bg-purple-50',
+            url: data.prescriptionUrl
+          });
+        }
+      });
+
+      setRecords(allRecords);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [patientId]);
 
   const filteredRecords = activeCategory === 'All' 
     ? records 
@@ -118,14 +165,25 @@ export default function RecordsPage() {
                       </div>
                       
                       <div className="flex items-center gap-3 w-full sm:w-auto">
-                         <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-ash-grey-900 h-12 px-6 text-xs font-bold text-charcoal-blue-600 border border-ash-grey-700 hover:bg-white hover:text-deep-teal-600 transition-all">
+                         <a 
+                             href={record.url} 
+                             target="_blank" 
+                             rel="noopener noreferrer"
+                             className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-ash-grey-900 h-12 px-6 text-xs font-bold text-charcoal-blue-600 border border-ash-grey-700 hover:bg-white hover:text-deep-teal-600 transition-all"
+                         >
                             <ExternalLink className="h-4 w-4" />
                             View
-                         </button>
-                         <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-deep-teal-500 h-12 px-6 text-xs font-bold text-white shadow-lg shadow-deep-teal-500/10 hover:bg-deep-teal-600 transition-all">
+                         </a>
+                         <a 
+                             href={record.url} 
+                             download 
+                             target="_blank" 
+                             rel="noopener noreferrer"
+                             className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-deep-teal-500 h-12 px-6 text-xs font-bold text-white shadow-lg shadow-deep-teal-500/10 hover:bg-deep-teal-600 transition-all"
+                         >
                             <Download className="h-4 w-4" />
                             Download
-                         </button>
+                         </a>
                       </div>
                    </div>
                 </motion.div>
