@@ -14,10 +14,16 @@ interface Medication {
     frequency: string;
 }
 
+interface LineItem {
+    id: string;
+    text: string;
+}
+
 export default function SmartPrescription({ sessionId = "demo-session-123" }: { sessionId?: string }) {
     const [patientInfo, setPatientInfo] = useState({ name: "Rahul Sharma", age: 45, gender: "Male" });
-    const [diagnosis, setDiagnosis] = useState("");
+    const [diagnoses, setDiagnoses] = useState<LineItem[]>([]);
     const [medications, setMedications] = useState<Medication[]>([]);
+    const [advices, setAdvices] = useState<LineItem[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
 
     // Sync with Firestore
@@ -26,8 +32,11 @@ export default function SmartPrescription({ sessionId = "demo-session-123" }: { 
         const unsubscribe = onSnapshot(sessionRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                if (data.diagnosis) setDiagnosis(data.diagnosis);
+                if (data.diagnoses) setDiagnoses(data.diagnoses);
+                else setDiagnoses([]);
                 if (data.medications) setMedications(data.medications);
+                if (data.advices) setAdvices(data.advices);
+                else setAdvices([]);
                 if (data.patientName) setPatientInfo(prev => ({ ...prev, name: data.patientName }));
                 if (data.patientAge) setPatientInfo(prev => ({ ...prev, age: data.patientAge }));
                 if (data.patientGender) setPatientInfo(prev => ({ ...prev, gender: data.patientGender }));
@@ -59,17 +68,49 @@ export default function SmartPrescription({ sessionId = "demo-session-123" }: { 
             
             docPdf.setFontSize(14);
             docPdf.text("Diagnosis:", 20, 85);
-            docPdf.setFontSize(12);
-            docPdf.text(diagnosis || "No diagnosis provided", 20, 95);
-            
-            docPdf.setFontSize(14);
-            docPdf.text("Medications:", 20, 110);
-            let yPos = 120;
-            medications.forEach((med, i) => {
+            let yPos = 95;
+            if (diagnoses.length === 0) {
                 docPdf.setFontSize(12);
-                docPdf.text(`${i+1}. ${med.name} - ${med.dosage} (${med.frequency})`, 25, yPos);
+                docPdf.text("No diagnosis provided", 20, yPos);
                 yPos += 10;
-            });
+            } else {
+                diagnoses.forEach((d, i) => {
+                    docPdf.setFontSize(12);
+                    docPdf.text(`${i+1}. ${d.text}`, 25, yPos);
+                    yPos += 10;
+                });
+            }
+            
+            yPos += 5;
+            docPdf.setFontSize(14);
+            docPdf.text("Medications:", 20, yPos);
+            yPos += 10;
+            if (medications.length === 0) {
+                docPdf.setFontSize(12);
+                docPdf.text("No medications prescribed", 20, yPos);
+                yPos += 10;
+            } else {
+                medications.forEach((med, i) => {
+                    docPdf.setFontSize(12);
+                    docPdf.text(`${i+1}. ${med.name} - ${med.dosage} (${med.frequency})`, 25, yPos);
+                    yPos += 10;
+                });
+            }
+            
+            yPos += 5;
+            docPdf.setFontSize(14);
+            docPdf.text("Advice / Instructions:", 20, yPos);
+            yPos += 10;
+            if (advices.length === 0) {
+                docPdf.setFontSize(12);
+                docPdf.text("No advice provided", 20, yPos);
+            } else {
+                advices.forEach((a, i) => {
+                    docPdf.setFontSize(12);
+                    docPdf.text(`${i+1}. ${a.text}`, 25, yPos);
+                    yPos += 10;
+                });
+            }
 
             // Convert PDF to Blob
             const pdfBlob = docPdf.output('blob');
@@ -93,7 +134,8 @@ export default function SmartPrescription({ sessionId = "demo-session-123" }: { 
             await updateDoc(doc(db, "sessions", sessionId), {
                 prescriptionUrl: result.secure_url,
                 medications: medications,
-                diagnosis: diagnosis
+                diagnoses: diagnoses,
+                advices: advices
             });
 
             alert("Prescription generated and synced successfully!");
@@ -105,9 +147,23 @@ export default function SmartPrescription({ sessionId = "demo-session-123" }: { 
         }
     };
 
-    const updateDiagnosis = async (val: string) => {
-        setDiagnosis(val);
-        await updateDoc(doc(db, "sessions", sessionId), { diagnosis: val });
+    // --- Diagnosis Logic ---
+    const addDiagnosis = async () => {
+        const updated = [...diagnoses, { id: Date.now().toString(), text: "" }];
+        setDiagnoses(updated);
+        await updateDoc(doc(db, "sessions", sessionId), { diagnoses: updated });
+    };
+
+    const removeDiagnosis = async (id: string) => {
+        const updated = diagnoses.filter(d => d.id !== id);
+        setDiagnoses(updated);
+        await updateDoc(doc(db, "sessions", sessionId), { diagnoses: updated });
+    };
+
+    const updateDiagnosis = async (id: string, text: string) => {
+        const updated = diagnoses.map(d => d.id === id ? { ...d, text } : d);
+        setDiagnoses(updated);
+        await updateDoc(doc(db, "sessions", sessionId), { diagnoses: updated });
     };
 
     const addMedication = async () => {
@@ -127,6 +183,25 @@ export default function SmartPrescription({ sessionId = "demo-session-123" }: { 
         const updated = medications.map(m => m.id === id ? { ...m, [field]: value } : m);
         setMedications(updated);
         await updateDoc(doc(db, "sessions", sessionId), { medications: updated });
+    };
+
+    // --- Advice Logic ---
+    const addAdvice = async () => {
+        const updated = [...advices, { id: Date.now().toString(), text: "" }];
+        setAdvices(updated);
+        await updateDoc(doc(db, "sessions", sessionId), { advices: updated });
+    };
+
+    const removeAdvice = async (id: string) => {
+        const updated = advices.filter(a => a.id !== id);
+        setAdvices(updated);
+        await updateDoc(doc(db, "sessions", sessionId), { advices: updated });
+    };
+
+    const updateAdvice = async (id: string, text: string) => {
+        const updated = advices.map(a => a.id === id ? { ...a, text } : a);
+        setAdvices(updated);
+        await updateDoc(doc(db, "sessions", sessionId), { advices: updated });
     };
 
 
@@ -155,17 +230,47 @@ export default function SmartPrescription({ sessionId = "demo-session-123" }: { 
 
                 {/* Diagnosis */}
                 <div>
-                    <label className="text-[11px] font-bold text-dark-slate-grey-800 uppercase tracking-wider mb-2 block flex items-center gap-1.5">
-                        Diagnosis <Info className="w-3 h-3 text-ash-grey-600" />
-                    </label>
-                    <div className="bg-ash-grey-900 rounded-xl px-4 py-3 border border-ash-grey-800 focus-within:border-deep-teal-500 focus-within:ring-1 focus-within:ring-deep-teal-500 transition-all text-sm text-dark-slate-grey-500 font-medium shadow-inner">
-                        <input
-                            type="text"
-                            placeholder="Enter diagnosis..."
-                            value={diagnosis}
-                            onChange={(e) => updateDiagnosis(e.target.value)}
-                            className="w-full bg-transparent focus:outline-none"
-                        />
+                    <div className="flex items-center justify-between mb-2">
+                        <label className="text-[11px] font-bold text-dark-slate-grey-800 uppercase tracking-wider flex items-center gap-1.5">
+                            Diagnosis <Info className="w-3 h-3 text-ash-grey-600" />
+                        </label>
+                        <button
+                            onClick={addDiagnosis}
+                            className="text-xs font-bold text-deep-teal-500 hover:text-deep-teal-600 flex items-center gap-1 transition-colors px-2 py-1 rounded-lg hover:bg-muted-teal-50"
+                        >
+                            <Plus className="w-3.5 h-3.5" /> Add Line
+                        </button>
+                    </div>
+                    
+                    <div className="space-y-3">
+                        <AnimatePresence>
+                            {diagnoses.length === 0 && (
+                                <div className="text-xs text-ash-grey-600 font-medium italic px-2 py-1">No diagnosis added.</div>
+                            )}
+                            {diagnoses.map((d) => (
+                                <motion.div
+                                    key={d.id}
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    className="relative group bg-ash-grey-900 rounded-xl px-4 py-3 border border-ash-grey-800 focus-within:border-deep-teal-500 focus-within:ring-1 focus-within:ring-deep-teal-500 transition-all text-sm text-dark-slate-grey-500 font-medium shadow-inner"
+                                >
+                                    <input
+                                        type="text"
+                                        placeholder="Enter diagnosis line..."
+                                        value={d.text}
+                                        onChange={(e) => updateDiagnosis(d.id, e.target.value)}
+                                        className="w-full bg-transparent focus:outline-none pr-8"
+                                    />
+                                    <button
+                                        onClick={() => removeDiagnosis(d.id)}
+                                        className="absolute top-1/2 -translate-y-1/2 right-3 text-ash-grey-600 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
                     </div>
                 </div>
 
@@ -225,6 +330,52 @@ export default function SmartPrescription({ sessionId = "demo-session-123" }: { 
                                             />
                                         </div>
                                     </div>
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
+                    </div>
+                </div>
+
+                {/* Advice / Instructions */}
+                <div>
+                    <div className="flex items-center justify-between mb-2">
+                        <label className="text-[11px] font-bold text-dark-slate-grey-800 uppercase tracking-wider flex items-center gap-1.5">
+                            Advice / Instructions <Info className="w-3 h-3 text-ash-grey-600" />
+                        </label>
+                        <button
+                            onClick={addAdvice}
+                            className="text-xs font-bold text-deep-teal-500 hover:text-deep-teal-600 flex items-center gap-1 transition-colors px-2 py-1 rounded-lg hover:bg-muted-teal-50"
+                        >
+                            <Plus className="w-3.5 h-3.5" /> Add Line
+                        </button>
+                    </div>
+                    
+                    <div className="space-y-3">
+                        <AnimatePresence>
+                            {advices.length === 0 && (
+                                <div className="text-xs text-ash-grey-600 font-medium italic px-2 py-1">No advice added.</div>
+                            )}
+                            {advices.map((a) => (
+                                <motion.div
+                                    key={a.id}
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    className="relative group bg-ash-grey-900 rounded-xl px-4 py-3 border border-ash-grey-800 focus-within:border-deep-teal-500 focus-within:ring-1 focus-within:ring-deep-teal-500 transition-all text-sm text-dark-slate-grey-500 font-medium shadow-inner"
+                                >
+                                    <input
+                                        type="text"
+                                        placeholder="Enter advice line..."
+                                        value={a.text}
+                                        onChange={(e) => updateAdvice(a.id, e.target.value)}
+                                        className="w-full bg-transparent focus:outline-none pr-8"
+                                    />
+                                    <button
+                                        onClick={() => removeAdvice(a.id)}
+                                        className="absolute top-1/2 -translate-y-1/2 right-3 text-ash-grey-600 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
                                 </motion.div>
                             ))}
                         </AnimatePresence>

@@ -109,13 +109,13 @@ export default function DoctorDashboard() {
         return (
           <motion.div
             key="active-session-view"
-            className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-6"
+            className="flex-1 min-h-0 h-full grid grid-cols-1 lg:grid-cols-12 gap-6 pb-2"
             variants={containerVariants}
             initial="hidden"
             animate="visible"
           >
             {/* Left Column (Patient + Prescription) */}
-            <div className="lg:col-span-4 flex flex-col gap-6 min-h-0">
+            <div className="lg:col-span-4 flex flex-col gap-6 min-h-0 h-full">
               <motion.div variants={itemVariants}>
                 <div className="flex items-center justify-between mb-2">
                     <button 
@@ -127,7 +127,7 @@ export default function DoctorDashboard() {
                 </div>
                 <PatientCard sessionId={sessionId} />
               </motion.div>
-              <motion.div variants={itemVariants} className="flex-1 min-h-0 relative">
+              <motion.div variants={itemVariants} className="flex-1 min-h-0 relative h-full">
                 <SmartPrescription sessionId={sessionId} />
               </motion.div>
             </div>
