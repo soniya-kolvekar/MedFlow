@@ -14,7 +14,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
-export default function Sidebar() {
+interface SidebarProps {
+  currentView?: string;
+  onViewChange?: (view: string) => void;
+}
+
+export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const pathname = usePathname();
   const { role } = useAuth();
   
@@ -23,6 +28,7 @@ export default function Sidebar() {
     { id: "pharmacy-dashboard", label: "Dashboard", icon: Package, href: "/dashboard/pharmacy", roles: ["pharmacy"] },
     { id: "lab-dashboard", label: "Dashboard", icon: FileText, href: "/dashboard/lab", roles: ["lab"] },
     { id: "admin-dashboard", label: "Dashboard", icon: ShieldPlus, href: "/dashboard/admin", roles: ["admin"] },
+    { id: "dashboard", label: "Dashboard", icon: Home, href: "/dashboard/doctor", roles: ["doctor"] },
     { id: "patients", label: "Patients", icon: Users, href: "/dashboard/patients", roles: ["admin", "doctor", "pharmacy"] },
     { id: "appointments", label: "Appointments", icon: Calendar, href: "/dashboard/appointments", roles: ["patient", "doctor", "admin"] },
     { id: "reports", label: "Reports", icon: FileText, href: "/dashboard/reports", roles: ["patient", "doctor", "admin"] },
@@ -30,6 +36,18 @@ export default function Sidebar() {
   ];
 
   const menuItems = allMenuItems.filter(item => item.roles.includes(role || ""));
+
+  const handleItemClick = (e: React.MouseEvent, item: any) => {
+    if (onViewChange) {
+      // If we are on a page that uses state-based switching (like DoctorDashboard),
+      // and the clicked item is one of the handled views, prevent navigation and switch state instead.
+      const handledViews = ["dashboard", "patients", "appointments", "reports"];
+      if (handledViews.includes(item.id)) {
+        e.preventDefault();
+        onViewChange(item.id);
+      }
+    }
+  };
 
   return (
     <aside className="w-64 bg-dark-slate-grey-500 text-white min-h-screen flex flex-col m-4 rounded-3xl overflow-hidden shadow-xl shadow-dark-slate-grey-200/20 fixed left-0 top-0 z-50">
@@ -50,11 +68,16 @@ export default function Sidebar() {
       <nav className="flex-1 px-4 py-6 space-y-2">
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href;
+          // Determine activity: either by state (currentView) or by URL pathname
+          const isActive = onViewChange 
+            ? currentView === item.id 
+            : pathname === item.href;
+
           return (
             <Link
               key={item.id}
               href={item.href}
+              onClick={(e) => handleItemClick(e, item)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-medium transition-all group ${
                 isActive 
                 ? "bg-deep-teal-500 text-white shadow-md shadow-deep-teal-500/20" 
