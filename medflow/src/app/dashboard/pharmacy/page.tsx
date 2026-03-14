@@ -7,6 +7,7 @@ import { usePatients, Patient } from '@/hooks/usePatients';
 import { useInventory } from '@/hooks/useInventory';
 import { seedDatabase } from '@/lib/seed';
 import { db } from '@/lib/firebase';
+import { logActivity } from '@/lib/logger';
 import Modal from '@/components/ui/Modal';
 import PatientForm from '@/components/forms/PatientForm';
 import { doc, updateDoc, increment, addDoc, collection } from 'firebase/firestore';
@@ -44,6 +45,7 @@ export default function PharmacyDashboard() {
   
   // Advanced Workflow State
   const [fulfillmentType, setFulfillmentType] = useState<'Offline' | 'Ship-to-Home'>('Offline');
+  const [estimatedDelivery, setEstimatedDelivery] = useState('2-4 Hours');
   const [aiCheckResults, setAiCheckResults] = useState<any>(null);
   const [isAiChecking, setIsAiChecking] = useState(false);
   const [showInvoice, setShowInvoice] = useState(false);
@@ -71,24 +73,87 @@ export default function PharmacyDashboard() {
 
   const activePatient = patients.find(p => p.id === selectedPatientId);
 
-  const runAIInventoryCheck = () => {
-    if (!activePatient || !activePatient.items) return;
+  const runAIInventoryCheck = async () => {
+    if (!activePatient) return;
     setIsAiChecking(true);
     
-    // Simulate AI/OCR Analytics
-    setTimeout(() => {
-      const results = activePatient.items!.map((item: any) => {
+    try {
+      let medicinesToProcess = activePatient.items || [];
+
+      // If patient has a prescription URL and it's not processed, trigger OCR
+      if (activePatient.prescriptionUrl && !activePatient.processed) {
+        const fetchUrl = 'http://127.0.0.1:8000/api/scan-prescription';
+        console.log("Triggering OCR at:", fetchUrl);
+        const response = await fetch(fetchUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image_url: activePatient.prescriptionUrl })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Backend server error: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log("OCR Data Received:", data);
+        
+        if (data.error) {
+          throw new Error(`OCR Error: ${data.error}`);
+        }
+
+        if (data.medicines && data.medicines.length > 0) {
+          medicinesToProcess = data.medicines;
+          console.log("Using OCR extracted medicines:", medicinesToProcess);
+        } else {
+          console.warn("OCR succeeded but found no medicines. Raw text:", data.raw_text);
+        }
+      }
+
+      // Match with inventory
+      const results = medicinesToProcess.map((item: any) => {
+        const itemName = item.name.toLowerCase();
+        const firstWord = itemName.split(' ')[0];
+        
+        const invItem = inventory.find((i: any) => {
+          const invName = i.name.toLowerCase();
+          return invName.includes(firstWord) || itemName.includes(invName);
+        });
+
+        console.log(`Matching "${item.name}" -> ${invItem ? invItem.name : 'No Match'} (Stock: ${invItem ? invItem.stock : 'N/A'})`);
+        
+        return {
+          ...item,
+          available: invItem ? Number(invItem.stock) > 0 : false,
+          currentStock: invItem ? invItem.stock : 0,
+          price: invItem ? invItem.price : 10.00
+        };
+      });
+
+      setAiCheckResults(results);
+    } catch (error: any) {
+      console.error("AI Check Error:", error);
+      
+      let errorMessage = "AI processing failed. Please ensure the backend server is running.";
+      if (error.message.includes("Failed to fetch")) {
+        errorMessage = "Could not connect to the backend server. Is it running at http://127.0.0.1:8000?";
+      }
+      
+      alert(errorMessage);
+
+      // Fallback to manual items if OCR fails
+      const results = (activePatient.items || []).map((item: any) => {
         const invItem = inventory.find((i: any) => i.name.toLowerCase().includes(item.name.toLowerCase().split(' ')[0]));
         return {
           ...item,
-          available: invItem ? invItem.stock >= parseInt(item.qty) : false,
+          available: invItem ? invItem.stock > 0 : false,
           currentStock: invItem ? invItem.stock : 0,
           price: invItem ? invItem.price : 10.00
         };
       });
       setAiCheckResults(results);
+    } finally {
       setIsAiChecking(false);
-    }, 1500);
+    }
   };
 
   const calculateTotal = () => {
@@ -100,14 +165,31 @@ export default function PharmacyDashboard() {
     if (!activePatient || !aiCheckResults) return;
 
     try {
-      // 1. Update Inventory Stock for each item
+      // 1. Update Inventory Stock and Status for each item
       for (const res of aiCheckResults) {
         if (res.available) {
-          const invItem = (inventory as any[]).find((i: any) => i.name.toLowerCase().includes(res.name.toLowerCase().split(' ')[0]));
+          // Find the exact inventory item using ID or robust search
+          const invItem = inventory.find((i: any) => 
+            i.id === res.id || i.name.toLowerCase().includes(res.name.toLowerCase().split(' ')[0])
+          );
+
           if (invItem && (invItem as any).id) {
+            const qtyToDeduct = parseInt(res.qty) || 1;
+            const newStock = Math.max(0, Number(invItem.stock) - qtyToDeduct);
+            
+            // Calculate new status
+            let newStatus = 'Available';
+            if (newStock <= 0) newStatus = 'Out of Stock';
+            else if (newStock <= Number(invItem.threshold) / 2) newStatus = 'Critical';
+            else if (newStock <= Number(invItem.threshold)) newStatus = 'Low Stock';
+
+            console.log(`Dispensing ${res.name}: ${invItem.stock} -> ${newStock} (${newStatus})`);
+
             const invDocRef = doc(db, 'inventory', (invItem as any).id);
             await updateDoc(invDocRef, {
-              stock: increment(-parseInt(res.qty))
+              stock: newStock,
+              status: newStatus,
+              lastUpdated: new Date().toISOString()
             });
           }
         }
@@ -124,20 +206,35 @@ export default function PharmacyDashboard() {
 
       // 3. If Ship-to-Home — send a notification to the patient's portal
       if (fulfillmentType === 'Ship-to-Home') {
-        // Strip '#' prefix if present. e.g. '#MF-92850' → 'MF-92850'
+        // Strip '#' prefix if present. e.g. '#MF-92831' → 'MF-92831'
         const cleanPatientId = activePatient.id.replace('#', '');
+        
         await addDoc(collection(db, 'notifications'), {
           patientId: cleanPatientId,
           patientName: activePatient.name,
           type: 'DELIVERY',
           title: '📦 Your Medication Is On Its Way!',
-          message: `Your prescription from Central Hospital has been dispatched for home delivery. Total: $${calculateTotal().toFixed(2)}.`,
-          medicines: activePatient.items?.map((i: any) => i.name).join(', ') || '',
+          message: `Your prescription from Central Hospital has been dispatched for home delivery. Estimated delivery: ${estimatedDelivery}. Total: ₹${calculateTotal().toFixed(2)}.`,
+          medicines: (aiCheckResults || activePatient.items)?.map((i: any) => i.name).join(', ') || '',
+          deliveryTime: estimatedDelivery,
           total: calculateTotal(),
           createdAt: new Date().toISOString(),
           read: false
         });
       }
+
+      // 4. Log Activity for Admin Dashboard
+      await logActivity({
+        type: 'PHARMACY',
+        title: '💊 Prescription Dispensed',
+        message: `${activePatient.name}'s prescription was dispensed (${fulfillmentType}).`,
+        patientId: activePatient.id,
+        patientName: activePatient.name,
+        metadata: {
+          fulfillment: fulfillmentType,
+          medicines: (aiCheckResults || activePatient.items)?.map((i: any) => i.name) || []
+        }
+      });
 
       // 3. Reset local state
       setAiCheckResults(null);
@@ -356,6 +453,21 @@ export default function PharmacyDashboard() {
                           Ship-to-Home
                         </button>
                       </div>
+                      
+                      {fulfillmentType === 'Ship-to-Home' && (
+                        <div className="flex bg-ash-grey-900 p-1 rounded-xl border border-ash-grey-800">
+                          {['2-4 Hours', 'Today', 'Tomorrow'].map(time => (
+                            <button 
+                              key={time}
+                              onClick={() => setEstimatedDelivery(time)}
+                              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${estimatedDelivery === time ? 'bg-white text-dark-slate-grey-500 shadow-sm' : 'text-charcoal-blue-700 opacity-40 hover:opacity-100'}`}
+                            >
+                              {time}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
                       <button 
                         onClick={runAIInventoryCheck}
                         disabled={isAiChecking}
@@ -422,7 +534,7 @@ export default function PharmacyDashboard() {
                                 {aiCheckResults ? (
                                   <div className={`flex items-center gap-1 text-[9px] font-black tracking-widest uppercase px-2.5 py-1 rounded-full ${med.available ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100'}`}>
                                     {med.available ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
-                                    {med.available ? `Available (${med.currentStock})` : `Out of Stock (${med.currentStock})`}
+                                    {med.available ? 'Available' : 'Out of Stock'}
                                   </div>
                                 ) : (
                                   <span className="font-bold text-sm text-charcoal-blue-500">{med.qty} Units</span>
@@ -431,7 +543,7 @@ export default function PharmacyDashboard() {
                             </td>
                             <td className="py-5 text-right">
                               {aiCheckResults ? (
-                                <span className="font-bold text-sm text-dark-slate-grey-500">${(med.price * (parseInt(med.qty) || 1)).toFixed(2)}</span>
+                                <span className="font-bold text-sm text-dark-slate-grey-500">₹{(med.price * (parseInt(med.qty) || 1)).toFixed(2)}</span>
                               ) : (
                                 <button className="p-2 text-charcoal-blue-700 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all group-hover:scale-110">
                                   <Trash2 className="h-4 w-4" />
@@ -458,7 +570,7 @@ export default function PharmacyDashboard() {
                         </div>
                         <div className="text-right">
                           <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Total Amount</p>
-                          <h3 className="text-4xl font-black">${calculateTotal().toFixed(2)}</h3>
+                          <h3 className="text-4xl font-black">₹{calculateTotal().toFixed(2)}</h3>
                           <button 
                             onClick={() => setShowInvoice(true)}
                             className="mt-4 px-6 py-2 bg-white text-dark-slate-grey-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-ash-grey-900 transition-all active:scale-95"

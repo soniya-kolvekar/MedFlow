@@ -1,16 +1,15 @@
 "use client";
 
 import { useAuth } from '@/context/AuthContext';
-import { Bell, Search, User, Menu, Globe, ChevronDown } from 'lucide-react';
-import { useState } from 'react';
+import { Bell, Search, User, Menu, Globe, ChevronDown, Bug, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import ProfileEdit from './ProfileEdit';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, role } = useAuth();
+  const { user, role, patientId, testPatientId, setTestPatientId, language, setLanguage } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [currentLang, setCurrentLang] = useState('English');
   const [langOpen, setLangOpen] = useState(false);
   const [currentView, setCurrentView] = useState('dashboard');
 
@@ -75,6 +74,39 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
 
             <div className="flex items-center gap-3">
+               {/* Test Mode Trigger */}
+               <div className="flex items-center gap-2">
+                  {testModeOpen ? (
+                    <div className="flex items-center gap-2 animate-in slide-in-from-right-2">
+                       <input 
+                         type="text"
+                         placeholder="Test Patient ID..."
+                         value={testPatientId || ''}
+                         onChange={(e) => setTestPatientId(e.target.value)}
+                         className="h-9 w-40 rounded-xl border border-orange-200 bg-orange-50/50 px-3 text-[10px] font-bold text-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                       />
+                       <button 
+                         onClick={() => {
+                           setTestModeOpen(false);
+                           setTestPatientId(null);
+                         }}
+                         className="p-2 text-orange-400 hover:text-orange-600 transition-colors"
+                         title="Clear Test ID"
+                       >
+                         <X className="h-4 w-4" />
+                       </button>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => setTestModeOpen(true)}
+                      className={`p-2 rounded-xl transition-all ${testPatientId ? 'bg-orange-100 text-orange-600 shadow-sm' : 'text-charcoal-blue-600 hover:bg-ash-grey-800'}`}
+                      title="Test Mode"
+                    >
+                      <Bug className="h-5 w-5" />
+                    </button>
+                  )}
+               </div>
+
                {/* Language Selector */}
                <div className="relative">
                   <button 
@@ -82,7 +114,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     className="flex items-center gap-2 rounded-xl border border-ash-grey-700 bg-white px-3 py-2 text-xs font-bold text-dark-slate-grey-500 hover:bg-ash-grey-800 transition-colors"
                   >
                     <Globe className="h-4 w-4 text-charcoal-blue-600" />
-                    <span className="hidden md:inline">{currentLang}</span>
+                    <span className="hidden md:inline">{language}</span>
                     <ChevronDown className="h-3 w-3" />
                   </button>
                   
@@ -92,7 +124,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <button
                           key={lang}
                           onClick={() => {
-                            setCurrentLang(lang);
+                            setLanguage(lang);
                             setLangOpen(false);
                           }}
                           className="flex w-full items-center px-4 py-2.5 text-xs font-bold text-charcoal-blue-600 hover:bg-ash-grey-800 hover:text-deep-teal-600 text-left"
@@ -104,10 +136,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   )}
                </div>
 
-               <button className="relative p-2 text-charcoal-blue-600 hover:text-deep-teal-500 transition-colors">
+               <Link 
+                 href="/dashboard/patient/notifications"
+                 className="relative p-2 text-charcoal-blue-600 hover:text-deep-teal-500 transition-colors"
+                >
                   <Bell className="h-5 w-5" />
-                  <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500" />
-               </button>
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full bg-red-500 text-[8px] font-black text-white flex items-center justify-center border-2 border-ash-grey-900">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+               </Link>
                
                <div className="flex items-center gap-3 border-l border-ash-grey-700 pl-4">
                   <div className="hidden md:flex flex-col items-end">

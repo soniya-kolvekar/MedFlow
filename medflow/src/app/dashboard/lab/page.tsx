@@ -84,15 +84,29 @@ export default function LabDashboard() {
 
       if (data.success) {
         // 3. Store report URL in Firestore WITH patient linkage
+        const cleanPatientId = (activePatientRequest?.patientID || "MF-00000").replace('#', '');
+        
         await addDoc(collection(db, 'reports'), {
           fileName: file.name,
           url: data.result.secure_url,
           uploadedAt: new Date().toISOString(),
           department: "Laboratory",
-          status: "Pending Review",
-          patientId: activePatientRequest?.patientID || "MF-00000",
+          status: "Finalized",
+          patientId: cleanPatientId,
           patientName: activePatientRequest?.patientName || "Unknown Patient",
           testName: activePatientRequest?.testName || "Laboratory Test"
+        });
+
+        // 4. Send Notification to Patient Portal
+        await addDoc(collection(db, 'notifications'), {
+          patientId: cleanPatientId,
+          patientName: activePatientRequest?.patientName || "Unknown Patient",
+          type: 'info',
+          title: '🔬 Lab Results Available',
+          message: `Your results for "${activePatientRequest?.testName}" are now available for viewing.`,
+          reportUrl: data.result.secure_url,
+          createdAt: new Date().toISOString(),
+          read: false
         });
 
         setUploadSuccess(true);

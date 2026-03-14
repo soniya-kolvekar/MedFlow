@@ -12,6 +12,13 @@ from dotenv import load_dotenv
 from typing import Optional, List
 from models import TTSRequest, SummaryRequest
 import google.generativeai as genai
+import pytesseract
+from PIL import Image
+import io
+import re
+
+# Set Tesseract path if not in system PATH
+# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # Load environment variables
 load_dotenv()
@@ -30,11 +37,23 @@ app.add_middleware(
 SARVAM_API_KEY = os.getenv("SARVAM_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
+class PrescriptionScanRequest(SummaryRequest):
+    # Reusing transcript field as image_url for simplicity or adding specific model
+    image_url: str
+
 # Initialize Gemini
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 else:
     print("⚠️ WARNING: GEMINI_API_KEY not found in environment variables.")
+
+# Check Tesseract installation
+try:
+    tesseract_version = pytesseract.get_tesseract_version()
+    print(f"✅ Tesseract OCR found: version {tesseract_version}")
+except Exception as e:
+    print(f"⚠️ WARNING: Tesseract OCR not found. OCR features will fail. Error: {e}")
+    print("Please install Tesseract-OCR from: https://github.com/UB-Mannheim/tesseract/wiki")
 
 @app.post("/api/summarize")
 async def summarize_session(request: SummaryRequest):
@@ -285,6 +304,78 @@ async def translate_websocket_relay(websocket: WebSocket, source_language: str =
     except Exception as e:
         print(f"WebSocket relay setup failed: {e}")
         await websocket.close(code=1011)
+
+@app.post("/api/scan-prescription")
+async def scan_prescription(request: dict):
+    """
+    Extract medicine information from a Cloudinary image URL using Tesseract OCR.
+    """
+    image_url = request.get("image_url")
+    if not image_url:
+        return {"error": "Image URL is required"}
+    
+    try:
+        print(f"📥 Attempting to fetch image: {image_url}")
+        # 1. Fetch the image from Cloudinary
+        response = requests.get(image_url, timeout=10)
+        response.raise_for_status()
+        print(f"✅ Image fetched successfully ({len(response.content)} bytes)")
+        
+        # 2. Open image with Pillow
+        img = Image.open(io.BytesIO(response.content))
+        
+        # 3. Use Tesseract to extract text
+        raw_text = pytesseract.image_to_string(img)
+        print(f"📄 OCR Raw Text Output:\n{raw_text}\n" + "-"*20)
+        
+        # 4. Parse text into structured format (Medicine, Dosage, Qty)
+        # We'll use a simple heuristic: each line might be a medicine
+        # Or use Gemini to structure the raw Tesseract text if needed, 
+        # but user specifically asked for Tesseract.
+        
+        medicines = []
+        lines = [line.strip() for line in raw_text.split('\n') if len(line.strip()) > 2]
+        
+        for line in lines:
+            # 1. Broadly match: [Name] [optional dosage/info]
+            # Try to find a drug name (starts with letters)
+            # Example lines: "Aspirin 81mg", "Lisinopril 10 mg tab", "Amoxicillin 500mg"
+            
+            # Simple heuristic: Split by spaces and look for dosage markers
+            parts = line.split()
+            if not parts: continue
+            
+            name_parts = []
+            dosage = "As directed"
+            qty = "1"
+            
+            found_dosage = False
+            for i, part in enumerate(parts):
+                # If part contains numbers and mg/ml/etc, it's likely dosage
+                if re.search(r'\d+(?:mg|ml|mcg|g|tab|cap)', part.lower()):
+                    dosage = " ".join(parts[i:])
+                    found_dosage = True
+                    break
+                else:
+                    name_parts.append(part)
+            
+            name = " ".join(name_parts).strip()
+            
+            # Basic validation
+            if len(name) > 2 and not name.isdigit():
+                medicines.append({
+                    "name": name,
+                    "dosage": dosage,
+                    "qty": qty,
+                    "code": name[:2].upper(),
+                    "color": "bg-blue-500"
+                })
+
+        return {"medicines": medicines, "raw_text": raw_text}
+        
+    except Exception as e:
+        print(f"❌ OCR Error: {e}")
+        return {"error": str(e)}
 
 @app.get("/")
 def read_root():
