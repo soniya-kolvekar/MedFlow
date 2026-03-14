@@ -4,54 +4,48 @@ import { useAuth } from '@/context/AuthContext';
 import { Bell, Search, User, Menu, Globe, ChevronDown, Bug, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
-import Link from 'next/link';
-import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import ProfileEdit from './ProfileEdit';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, role, patientId, testPatientId, setTestPatientId, language, setLanguage } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [testModeOpen, setTestModeOpen] = useState(false);
-
-  const effectiveId = testPatientId || patientId;
-
-  useEffect(() => {
-    if (!effectiveId) {
-      setUnreadCount(0);
-      return;
-    }
-
-    const q = query(
-      collection(db, 'notifications'),
-      where('patientId', '==', effectiveId.replace('#', ''))
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      // Filter unread notifications client-side to avoid index requirement
-      const unread = snapshot.docs.filter(doc => !doc.data().read);
-      setUnreadCount(unread.length);
-    });
-
-    return () => unsubscribe();
-  }, [patientId]);
+  const [currentView, setCurrentView] = useState('dashboard');
 
   const languages = ['English', 'Hindi', 'Tamil', 'Telugu', 'Bengali'];
+
+  const renderContent = () => {
+    if (currentView === 'profile') {
+      return (
+        <motion.div
+           initial={{ opacity: 0, y: 20 }}
+           animate={{ opacity: 1, y: 0 }}
+           className="mt-4"
+        >
+          <ProfileEdit />
+        </motion.div>
+      );
+    }
+    return children;
+  };
 
   return (
     <div className="min-h-screen bg-ash-grey-900 flex">
       {/* Desktop Sidebar */}
       <div className="hidden sm:block">
-         <Sidebar />
+         <Sidebar currentView={currentView} onViewChange={setCurrentView} />
       </div>
 
       {/* Mobile Sidebar Overlay */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 sm:hidden">
            <div className="absolute inset-0 bg-charcoal-blue-900/50 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
-           <div className="absolute left-0 top-0 h-full w-64 bg-charcoal-blue-500 transform transition-transform shadow-2xl">
-             <Sidebar />
+           <div className="absolute left-0 top-0 h-full w-64 transform transition-transform shadow-2xl">
+             <Sidebar currentView={currentView} onViewChange={(view) => {
+               setCurrentView(view);
+               setMobileMenuOpen(false);
+             }} />
            </div>
         </div>
       )}
@@ -163,7 +157,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                        {role || 'patient'}
                      </span>
                   </div>
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-deep-teal-500/10 text-deep-teal-600 border border-deep-teal-500/20">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-deep-teal-500/10 text-deep-teal-600 border border-deep-teal-500/20 shadow-sm cursor-pointer hover:bg-deep-teal-500/20 transition-all" onClick={() => setCurrentView('profile')}>
                      <User className="h-5 w-5" />
                   </div>
                </div>
@@ -172,8 +166,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
          {/* Page Content */}
          <main className="flex-1 p-4 sm:p-8">
-            <div className="mx-auto max-w-6xl">
-              {children}
+            <div className="w-full">
+              <AnimatePresence mode="wait">
+                {renderContent()}
+              </AnimatePresence>
             </div>
          </main>
       </div>

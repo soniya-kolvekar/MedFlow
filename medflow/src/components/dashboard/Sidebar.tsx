@@ -1,38 +1,30 @@
-import React from "react";
 import {
   Home,
   Users,
   Calendar,
   FileText,
-  BarChart2,
   HelpCircle,
   LogOut,
   ShieldPlus,
-  Package,
+  UserCircle
 } from "lucide-react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
-interface SidebarProps {
-  currentView?: string;
-  onViewChange?: (view: string) => void;
-}
-
-export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
-  const pathname = usePathname();
-  const { role } = useAuth();
+export default function Sidebar({ 
+  currentView = "dashboard", 
+  onViewChange 
+}: { 
+  currentView?: string; 
+  onViewChange?: (view: string) => void 
+}) {
+  const { logout } = useAuth();
   
-  const allMenuItems = [
-    { id: "patient-dashboard", label: "Dashboard", icon: Home, href: "/dashboard/patient", roles: ["patient"] },
-    { id: "pharmacy-dashboard", label: "Dashboard", icon: Package, href: "/dashboard/pharmacy", roles: ["pharmacy"] },
-    { id: "lab-dashboard", label: "Dashboard", icon: FileText, href: "/dashboard/lab", roles: ["lab"] },
-    { id: "admin-dashboard", label: "Dashboard", icon: ShieldPlus, href: "/dashboard/admin", roles: ["admin"] },
-    { id: "dashboard", label: "Dashboard", icon: Home, href: "/dashboard/doctor", roles: ["doctor"] },
-    { id: "patients", label: "Patients", icon: Users, href: "/dashboard/patients", roles: ["admin", "doctor", "pharmacy"] },
-    { id: "appointments", label: "Appointments", icon: Calendar, href: "/dashboard/appointments", roles: ["patient", "doctor", "admin"] },
-    { id: "reports", label: "Reports", icon: FileText, href: "/dashboard/reports", roles: ["patient", "doctor", "admin"] },
-    { id: "analytics", label: "Analytics", icon: BarChart2, href: "/dashboard/analytics", roles: ["admin", "pharmacy", "lab"] },
+  const menuItems = [
+    { id: "dashboard", label: "Dashboard", icon: Home },
+    { id: "patients", label: "Patients", icon: Users },
+    { id: "appointments", label: "Appointments", icon: Calendar },
+    { id: "reports", label: "Reports", icon: FileText },
+    { id: "profile", label: "My Profile", icon: UserCircle },
   ];
 
   const menuItems = allMenuItems.filter(item => item.roles.includes(role || ""));
@@ -84,7 +76,7 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
                 : "text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400"
               }`}
             >
-              <Icon className={`w-5 h-5 ${isActive ? "text-ash-grey-800" : "group-hover:text-ash-grey-500"} transition-colors`} />
+              <Icon className={`w-5 h-5 ${isActive ? "text-white" : "group-hover:text-ash-grey-500"} transition-colors`} />
               {item.label}
             </Link>
           );
@@ -95,8 +87,11 @@ export default function Sidebar({ currentView, onViewChange }: SidebarProps) {
         <Link href="/support" className="w-full flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400 rounded-2xl font-medium transition-all text-sm">
           <HelpCircle className="w-4 h-4" />
           Support
-        </Link>
-        <Link href="/logout" className="w-full flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400 rounded-2xl font-medium transition-all text-sm">
+        </button>
+        <button 
+          onClick={() => logout()}
+          className="w-full flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-red-500 hover:bg-red-50 rounded-2xl font-medium transition-all text-sm"
+        >
           <LogOut className="w-4 h-4" />
           Logout
         </Link>

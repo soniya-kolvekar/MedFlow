@@ -9,6 +9,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ShieldPlus, Mail, Lock } from "lucide-react";
 
+const ADMIN_EMAIL = "admin@medflow.com";
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,12 +38,18 @@ export default function LoginPage() {
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
-        const userRole = docSnap.data().role;
+        const data = docSnap.data();
+        const userRole = data.role;
+        
+        // Hardcoded Admin Check logic
+        const is_admin = email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+        const finalRole = is_admin ? "admin" : (userRole === "admin" ? "patient" : userRole);
+        
         // 3. Update cookie to sync with Next.js Middleware
-        updateRoleInCookie(userRole);
+        updateRoleInCookie(finalRole);
 
         // 4. Redirect to proper dashboard
-        router.push(`/dashboard/${userRole}`);
+        router.push(`/dashboard/${finalRole}`);
       } else {
         setError("User role not found. Please contact support.");
         await auth.signOut(); // Log them back out if broken state

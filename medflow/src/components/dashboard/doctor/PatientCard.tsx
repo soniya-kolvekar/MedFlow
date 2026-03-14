@@ -44,22 +44,13 @@ export default function PatientCard({ sessionId = "demo-session-123" }: { sessio
                         className="w-full h-full object-cover"
                     />
                 </div>
-                <div className="flex flex-col items-end gap-2">
-                    <span className="bg-muted-teal-100 text-deep-teal-600 text-[10px] font-bold px-3 py-1 rounded-full tracking-widest uppercase">
-                        Active Session
-                    </span>
-                    <div className="flex items-center gap-1 text-[10px] text-dark-slate-grey-800 font-bold uppercase">
-                        <span className="w-1.5 h-1.5 rounded-full bg-deep-teal-500 animate-pulse" />
-                        Live
-                    </div>
-                </div>
             </div>
 
             <div>
                 <h3 className="text-2xl font-bold text-dark-slate-grey-500 mb-1 tracking-tight">
                     {patient.name}
                 </h3>
-                <p className="text-xs text-dark-slate-grey-800 font-bold uppercase tracking-wider flex items-center gap-2">
+                <p className="text-xs text-dark-slate-grey-500 font-bold uppercase tracking-wider flex items-center gap-2">
                     {patient.age} years <span className="w-1 h-1 bg-ash-grey-600 rounded-full" /> {patient.gender} <span className="w-1 h-1 bg-ash-grey-600 rounded-full" /> ID: #{patient.id}
                 </p>
             </div>

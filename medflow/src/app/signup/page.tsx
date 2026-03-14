@@ -23,8 +23,9 @@ const roles = [
   { id: "doctor", label: "Doctor", icon: Activity },
   { id: "pharmacy", label: "Pharmacy", icon: Pill },
   { id: "lab", label: "Laboratory", icon: FileText },
-  { id: "admin", label: "Admin", icon: ShieldCheck },
 ];
+
+const ADMIN_EMAIL = "admin@medflow.com";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -51,19 +52,22 @@ export default function SignupPage() {
       const user = userCredential.user;
 
       // 2. Save User Role & Info to Firestore
+      const is_admin = email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+      const finalRole = is_admin ? "admin" : (selectedRole === "admin" ? "patient" : selectedRole);
+
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
         name,
         email,
-        role: selectedRole,
+        role: finalRole,
         createdAt: new Date().toISOString(),
       });
 
       // 3. Update local cookie so middleware immediately knows the role
-      updateRoleInCookie(selectedRole);
+      updateRoleInCookie(finalRole);
 
       // 4. Redirect to respective dashboard
-      router.push(`/dashboard/${selectedRole}`);
+      router.push(`/dashboard/${finalRole}`);
     } catch (err: unknown) {
       alert((err as Error).message || "Failed to create an account. Please try again.");
       setError((err as Error).message || "Failed to create an account.");

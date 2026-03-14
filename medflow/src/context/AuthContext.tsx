@@ -8,7 +8,7 @@ import {
   ReactNode,
 } from "react";
 import { User, onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 
@@ -23,6 +23,7 @@ interface AuthContextType {
   loading: boolean;
   logout: () => Promise<void>;
   updateRoleInCookie: (newRole: string) => void;
+  updateProfile: (data: any) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -36,7 +37,10 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   logout: async () => { },
   updateRoleInCookie: () => { },
+  updateProfile: async () => { },
 });
+
+const ADMIN_EMAIL = "admin@medflow.com";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -59,19 +63,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
-        // Fetch role from Firestore
+        
+        // 1. Hardcoded Admin Check
+        if (firebaseUser.email === ADMIN_EMAIL) {
+            setRole("admin");
+            updateRoleInCookie("admin");
+            setLoading(false);
+            return;
+        }
+
+        // 2. Fetch role from Firestore for all other users
         try {
           const docRef = doc(db, "users", firebaseUser.uid);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
             const data = docSnap.data();
             const userRole = data.role;
-            setRole(userRole);
-            updateRoleInCookie(userRole);
-            // Also fetch patientId if the user is a patient
+            
+            // Security: Prevent any other user from claiming 'admin' role via Firestore
+            const safeRole = userRole === 'admin' ? 'patient' : userRole;
+            
+            setRole(safeRole);
+            updateRoleInCookie(safeRole);
             setPatientId(data.patientId || null);
           } else {
-            console.log("No user document found!");
             setRole(null);
             updateRoleInCookie(null);
           }
@@ -99,6 +114,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       router.push("/login");
     } catch (error) {
       console.error("Logout Error:", error);
+    }
+  };
+
+  const updateProfile = async (data: any) => {
+    if (!user) return;
+    try {
+      const userRef = doc(db, "users", user.uid);
+      await setDoc(userRef, data, { merge: true });
+      // Refresh local role/patientId if they were updated
+      if (data.role) setRole(data.role);
+      if (data.patientId) setPatientId(data.patientId);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      throw error;
     }
   };
 
