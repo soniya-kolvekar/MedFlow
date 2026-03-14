@@ -9,6 +9,8 @@ import {
   UserCircle
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function Sidebar({ 
   currentView = "dashboard", 
@@ -17,14 +19,15 @@ export default function Sidebar({
   currentView?: string; 
   onViewChange?: (view: string) => void 
 }) {
-  const { logout } = useAuth();
+  const { logout, role } = useAuth();
+  const pathname = usePathname();
   
-  const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: Home },
-    { id: "patients", label: "Patients", icon: Users },
-    { id: "appointments", label: "Appointments", icon: Calendar },
-    { id: "reports", label: "Reports", icon: FileText },
-    { id: "profile", label: "My Profile", icon: UserCircle },
+  const allMenuItems = [
+    { id: "dashboard", label: "Dashboard", icon: Home, href: "/dashboard", roles: ["doctor", "admin", "patient", "lab", "pharmacy"] },
+    { id: "patients", label: "Patients", icon: Users, href: "/dashboard/doctor/patients", roles: ["doctor", "admin"] },
+    { id: "appointments", label: "Appointments", icon: Calendar, href: "/dashboard/doctor/appointments", roles: ["doctor", "admin", "patient"] },
+    { id: "reports", label: "Reports", icon: FileText, href: "/dashboard/doctor/reports", roles: ["doctor", "admin", "lab"] },
+    { id: "profile", label: "My Profile", icon: UserCircle, href: "/dashboard/profile", roles: ["doctor", "admin", "patient", "lab", "pharmacy"] },
   ];
 
   const menuItems = allMenuItems.filter(item => item.roles.includes(role || ""));
@@ -87,14 +90,14 @@ export default function Sidebar({
         <Link href="/support" className="w-full flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400 rounded-2xl font-medium transition-all text-sm">
           <HelpCircle className="w-4 h-4" />
           Support
-        </button>
+        </Link>
         <button 
           onClick={() => logout()}
-          className="w-full flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-red-500 hover:bg-red-50 rounded-2xl font-medium transition-all text-sm"
+          className="w-full flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-red-400 hover:bg-red-50 rounded-2xl font-medium transition-all text-sm"
         >
           <LogOut className="w-4 h-4" />
           Logout
-        </Link>
+        </button>
       </div>
     </aside>
   );

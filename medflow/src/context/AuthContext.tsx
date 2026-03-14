@@ -142,7 +142,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLanguage,
       loading, 
       logout, 
-      updateRoleInCookie 
+      updateRoleInCookie,
+      updateProfile
     }}>
       {children}
     </AuthContext.Provider>

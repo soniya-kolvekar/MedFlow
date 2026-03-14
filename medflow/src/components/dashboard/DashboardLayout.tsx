@@ -3,6 +3,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { Bell, Search, User, Menu, Globe, ChevronDown, Bug, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import Sidebar from './Sidebar';
 import ProfileEdit from './ProfileEdit';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,6 +13,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const [currentView, setCurrentView] = useState('dashboard');
+  const [testModeOpen, setTestModeOpen] = useState(false);
+  const unreadCount = 0; // Placeholder for now
 
   const languages = ['English', 'Hindi', 'Tamil', 'Telugu', 'Bengali'];
 
@@ -137,7 +140,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                </div>
 
                <Link 
-                 href="/dashboard/patient/notifications"
+                 href="/dashboard/notifications"
                  className="relative p-2 text-charcoal-blue-600 hover:text-deep-teal-500 transition-colors"
                 >
                   <Bell className="h-5 w-5" />
