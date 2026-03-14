@@ -6,9 +6,12 @@ import {
   HelpCircle,
   LogOut,
   ShieldPlus,
-  UserCircle
+  UserCircle,
+  Bell
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function Sidebar({ 
   currentView = "dashboard", 
@@ -17,23 +20,53 @@ export default function Sidebar({
   currentView?: string; 
   onViewChange?: (view: string) => void 
 }) {
-  const { logout } = useAuth();
+  const { logout, role } = useAuth();
+  const pathname = usePathname();
   
-  const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: Home },
-    { id: "patients", label: "Patients", icon: Users },
-    { id: "appointments", label: "Appointments", icon: Calendar },
-    { id: "reports", label: "Reports", icon: FileText },
-    { id: "profile", label: "My Profile", icon: UserCircle },
-  ];
+  // Custom menu items per role (limited to 3-4 items)
+  const getMenuItems = () => {
+    switch(role) {
+      case 'doctor':
+        return [
+          { id: "dashboard", label: "Dashboard", icon: Home, href: "/dashboard" },
+          { id: "patients", label: "Patients", icon: Users, href: "/dashboard/patients" },
+          { id: "appointments", label: "Appointments", icon: Calendar, href: "/dashboard/appointments" },
+          { id: "profile", label: "Profile", icon: UserCircle, href: "/dashboard/profile" },
+        ];
+      case 'pharmacy':
+        return [
+          { id: "dashboard", label: "Inventory", icon: Home, href: "/dashboard/pharmacy" },
+          { id: "reports", label: "Analytics", icon: FileText, href: "/dashboard/reports" },
+          { id: "profile", label: "Account", icon: UserCircle, href: "/dashboard/profile" },
+        ];
+      case 'lab':
+        return [
+          { id: "dashboard", label: "Lab Queue", icon: Home, href: "/dashboard/lab" },
+          { id: "reports", label: "Results", icon: FileText, href: "/dashboard/reports" },
+          { id: "profile", label: "Account", icon: UserCircle, href: "/dashboard/profile" },
+        ];
+      case 'admin':
+        return [
+          { id: "dashboard", label: "System", icon: Home, href: "/dashboard/admin" },
+          { id: "reports", label: "Logs", icon: FileText, href: "/dashboard/reports" },
+          { id: "profile", label: "Admin Profile", icon: UserCircle, href: "/dashboard/profile" },
+        ];
+      default: // patient
+        return [
+          { id: "dashboard", label: "Dashboard", icon: Home, href: "/dashboard" },
+          { id: "appointments", label: "Schedule", icon: Calendar, href: "/dashboard/appointments" },
+          { id: "notifications", label: "Notifications", icon: Bell, href: "/dashboard/patient/notifications" },
+          { id: "reports", label: "Health Records", icon: FileText, href: "/dashboard/reports" },
+          { id: "profile", label: "My Profile", icon: UserCircle, href: "/dashboard/profile" },
+        ];
+    }
+  };
 
-  const menuItems = allMenuItems.filter(item => item.roles.includes(role || ""));
+  const menuItems = getMenuItems();
 
   const handleItemClick = (e: React.MouseEvent, item: any) => {
     if (onViewChange) {
-      // If we are on a page that uses state-based switching (like DoctorDashboard),
-      // and the clicked item is one of the handled views, prevent navigation and switch state instead.
-      const handledViews = ["dashboard", "patients", "appointments", "reports"];
+      const handledViews = ["profile"];
       if (handledViews.includes(item.id)) {
         e.preventDefault();
         onViewChange(item.id);
@@ -87,14 +120,14 @@ export default function Sidebar({
         <Link href="/support" className="w-full flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-white hover:bg-dark-slate-grey-400 rounded-2xl font-medium transition-all text-sm">
           <HelpCircle className="w-4 h-4" />
           Support
-        </button>
+        </Link>
         <button 
           onClick={() => logout()}
           className="w-full flex items-center gap-3 px-4 py-3 text-dark-slate-grey-800 hover:text-red-500 hover:bg-red-50 rounded-2xl font-medium transition-all text-sm"
         >
           <LogOut className="w-4 h-4" />
           Logout
-        </Link>
+        </button>
       </div>
     </aside>
   );

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import DashboardLayout from '@/components/dashboard/DashboardLayout';
+// import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { usePatients, Patient } from '@/hooks/usePatients';
 import { useInventory } from '@/hooks/useInventory';
 import { seedDatabase } from '@/lib/seed';
@@ -248,18 +248,15 @@ export default function PharmacyDashboard() {
 
   if (loadingPatients || loadingInventory) {
     return (
-      <DashboardLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-          <Loader2 className="h-12 w-12 text-deep-teal-500 animate-spin" />
-          <p className="text-charcoal-blue-700 font-bold animate-pulse">Syncing Pharmacy Records...</p>
-        </div>
-      </DashboardLayout>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <Loader2 className="h-12 w-12 text-deep-teal-500 animate-spin" />
+        <p className="text-charcoal-blue-700 font-bold animate-pulse">Syncing Pharmacy Records...</p>
+      </div>
     );
   }
 
   return (
-
-    <DashboardLayout>
+    <>
       <div className="space-y-8">
         {/* Header Section */}
         <div className="flex items-center justify-between">
@@ -782,7 +779,7 @@ export default function PharmacyDashboard() {
           </div>
         </div>
       </Modal>
-    </DashboardLayout>
+    </>
   );
 }
 

@@ -39,7 +39,7 @@ export const transcribeAudio = async (audioBlob: Blob, inputLanguage: string = "
 
         if (!response.ok) {
             const status = response.status;
-            let errorText = await response.text();
+            const errorText = await response.text();
             console.error(`Sarvam AI API Error (${status}):`, errorText);
             return null;
         }

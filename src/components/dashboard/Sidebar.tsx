@@ -16,24 +16,50 @@ import {
   ShieldCheck
 } from 'lucide-react';
 
-const navItems = [
-  { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard/pharmacy' },
-  { name: 'Admin', icon: ShieldCheck, href: '/dashboard/admin' },
-  { name: 'Patients', icon: Users, href: '/dashboard/patients' },
-  { name: 'Lab', icon: Activity, href: '/dashboard/lab' },
-  { name: 'Patient Portal', icon: ShieldPlus, href: '/dashboard/patient' },
-  { name: 'Appointments', icon: Calendar, href: '/dashboard/appointments' },
-  { name: 'Departments', icon: Building2, href: '/dashboard/departments' },
-  { name: 'Reports', icon: FileText, href: '/dashboard/reports' },
-];
-
-const bottomItems = [
-  { name: 'Support', icon: LifeBuoy, href: '/support' },
-  { name: 'Logout', icon: LogOut, href: '/logout' },
-];
+import { useAuth } from '@/context/AuthContext';
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { role, logout } = useAuth();
+
+  const getMenuItems = () => {
+    switch(role) {
+      case 'doctor':
+        return [
+          { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
+          { name: 'Patients', icon: Users, href: '/dashboard/patients' },
+          { name: 'Appointments', icon: Calendar, href: '/dashboard/appointments' },
+          { name: 'Profile', icon: ShieldPlus, href: '/dashboard/profile' },
+        ];
+      case 'pharmacy':
+        return [
+          { name: 'Inventory', icon: Building2, href: '/dashboard/pharmacy' },
+          { name: 'Analytics', icon: BarChart3, href: '/dashboard/reports' },
+          { name: 'Account', icon: ShieldPlus, href: '/dashboard/profile' },
+        ];
+      case 'lab':
+        return [
+          { name: 'Lab Queue', icon: Activity, href: '/dashboard/lab' },
+          { name: 'Results', icon: FileText, href: '/dashboard/reports' },
+          { name: 'Account', icon: ShieldPlus, href: '/dashboard/profile' },
+        ];
+      case 'admin':
+        return [
+          { name: 'System', icon: LayoutDashboard, href: '/dashboard/admin' },
+          { name: 'Logs', icon: FileText, href: '/dashboard/reports' },
+          { name: 'Admin Profile', icon: ShieldPlus, href: '/dashboard/profile' },
+        ];
+      default: // patient
+        return [
+          { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
+          { name: 'Schedule', icon: Calendar, href: '/dashboard/appointments' },
+          { name: 'Health Records', icon: FileText, href: '/dashboard/reports' },
+          { name: 'My Profile', icon: ShieldPlus, href: '/dashboard/profile' },
+        ];
+    }
+  };
+
+  const navItems = getMenuItems();
 
   return (
     <aside className="fixed inset-y-0 left-0 w-64 bg-charcoal-blue-500 text-ash-grey-500 flex flex-col z-50 shadow-2xl">

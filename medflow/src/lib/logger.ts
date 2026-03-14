@@ -10,7 +10,7 @@ export const logActivity = async (data: {
   message: string;
   patientId?: string;
   patientName?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }) => {
   try {
     await addDoc(collection(db, 'system_logs'), {

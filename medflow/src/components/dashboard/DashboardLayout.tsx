@@ -3,15 +3,42 @@
 import { useAuth } from '@/context/AuthContext';
 import { Bell, Search, User, Menu, Globe, ChevronDown, Bug, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
 import ProfileEdit from './ProfileEdit';
 import { motion, AnimatePresence } from 'framer-motion';
+import Link from 'next/link';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, role, patientId, testPatientId, setTestPatientId, language, setLanguage } = useAuth();
+  const pathname = usePathname();
+  
+  // Initialize currentView based on pathname
+  const segments = pathname.split('/');
+  const initialView = segments[segments.length - 1];
+  const validViews = ['dashboard', 'patients', 'appointments', 'reports', 'profile', 'notifications'];
+  
+  const [currentView, setCurrentView] = useState(validViews.includes(initialView) ? initialView : 'dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
-  const [currentView, setCurrentView] = useState('dashboard');
+  const [testModeOpen, setTestModeOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (pathname.startsWith('/dashboard/appointments')) {
+      setCurrentView('appointments');
+    } else if (pathname === '/dashboard/patient/notifications') {
+      setCurrentView('notifications');
+    } else if (pathname.startsWith('/dashboard/patient') || pathname.startsWith('/dashboard/patients')) {
+      setCurrentView('patients');
+    } else if (pathname.startsWith('/dashboard/reports')) {
+      setCurrentView('reports');
+    } else if (pathname.startsWith('/dashboard/profile')) {
+      setCurrentView('profile');
+    } else if (pathname === '/dashboard') {
+      setCurrentView('dashboard');
+    }
+  }, [pathname]);
 
   const languages = ['English', 'Hindi', 'Tamil', 'Telugu', 'Bengali'];
 
