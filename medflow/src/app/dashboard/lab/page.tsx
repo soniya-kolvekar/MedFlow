@@ -137,7 +137,7 @@ export default function LabDashboard() {
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-[#F5F7F5] p-2 rounded-[32px]">
+      <div className="p-2">
         {/* Header Section */}
         <div className="flex items-center justify-between mb-8 px-2">
           <div>

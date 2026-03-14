@@ -127,7 +127,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
          {/* Page Content */}
          <main className="flex-1 p-4 sm:p-8">
-            <div className="mx-auto max-w-6xl">
+            <div className="w-full">
               <AnimatePresence mode="wait">
                 {renderContent()}
               </AnimatePresence>
