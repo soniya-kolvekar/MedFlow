@@ -7,6 +7,7 @@ import { usePatients, Patient } from '@/hooks/usePatients';
 import { useInventory } from '@/hooks/useInventory';
 import { seedDatabase } from '@/lib/seed';
 import { db } from '@/lib/firebase';
+import { logActivity } from '@/lib/logger';
 import Modal from '@/components/ui/Modal';
 import PatientForm from '@/components/forms/PatientForm';
 import { doc, updateDoc, increment, addDoc, collection } from 'firebase/firestore';
