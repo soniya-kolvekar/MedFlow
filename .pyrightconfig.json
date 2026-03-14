@@ -2,7 +2,7 @@
   "executionEnvironments": [
     {
       "root": "backend",
-      "venvPath": "backend",
+      "venvPath": ".",
       "venv": "venv"
     }
   ]

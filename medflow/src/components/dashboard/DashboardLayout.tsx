@@ -34,9 +34,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <div className="min-h-screen bg-ash-grey-900 flex">
-      {/* Desktop Sidebar */}
-      <div className="hidden sm:block">
+    <div className="min-h-screen bg-ash-grey-900 flex gap-8">
+      {/* Desktop Sidebar Column */}
+      <div className="hidden sm:flex flex-col w-80 h-screen sticky top-0 pl-8 py-6 pr-2 shrink-0">
          <Sidebar currentView={currentView} onViewChange={setCurrentView} />
       </div>
 
@@ -54,7 +54,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       {/* Main Content Area */}
-      <div className="flex flex-1 flex-col sm:ml-64 relative min-w-0">
+      <div className="flex flex-1 flex-col min-w-0 min-h-screen">
          
          {/* Top Header */}
          <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-ash-grey-700 bg-ash-grey-900/80 backdrop-blur-md px-4 sm:px-8">

@@ -1,24 +1,37 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-import uvicorn
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect  # type: ignore
+from fastapi.middleware.cors import CORSMiddleware  # type: ignore
+from fastapi.responses import StreamingResponse  # type: ignore
+import uvicorn  # type: ignore
 import os
-import requests
+import requests  # type: ignore
 import json
 import asyncio
-import websockets
+import websockets  # type: ignore
 import base64
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # type: ignore
 from typing import Optional, List
-from models import TTSRequest, SummaryRequest
-import google.generativeai as genai
-import pytesseract
-from PIL import Image
+from models import TTSRequest, SummaryRequest  # type: ignore
+import google.generativeai as genai  # type: ignore
+import pytesseract  # type: ignore
+from PIL import Image  # type: ignore
 import io
 import re
+import warnings
+
+# Suppress the Gemini SDK FutureWarning
+warnings.filterwarnings("ignore", category=FutureWarning, module="google.generativeai")
 
 # Set Tesseract path if not in system PATH
-# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+TESSERACT_PATHS = [
+    r'C:\Program Files\Tesseract-OCR\tesseract.exe',
+    r'C:\Users\\' + os.getlogin() + r'\AppData\Local\Tesseract-OCR\tesseract.exe',
+    r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe'
+]
+
+for path in TESSERACT_PATHS:
+    if os.path.exists(path):
+        pytesseract.pytesseract.tesseract_cmd = path
+        break
 
 # Load environment variables
 load_dotenv()
@@ -66,9 +79,9 @@ async def summarize_session(request: SummaryRequest):
     try:
         models_to_try = [
             'gemini-2.5-flash',
-            'gemini-2.5-pro',
-            'gemini-1.5-pro-latest',
-            'gemini-1.5-flash'
+            'gemini-2.0-flash',
+            'gemini-2.0-flash-lite-preview-02-05',
+            'veo-3.0-fast-generate'
         ]
         
         prompt = f"""
@@ -106,10 +119,25 @@ async def summarize_session(request: SummaryRequest):
                 continue
                 
         if response is not None and hasattr(response, 'text'):
-            # Clean up JSON if model adds markdown formatting
-            text = response.text.replace('```json', '').replace('```', '').strip()
-            summary_data = json.loads(text)
-            return summary_data
+            # Extract JSON from potential markdown blocks using regex
+            text = response.text
+            json_match = re.search(r'\{.*\}', text, re.DOTALL)
+            if json_match:
+                try:
+                    summary_data = json.loads(json_match.group(0))
+                    # Ensure all expected keys exist
+                    for key in ["symptoms", "diagnosis", "notes"]:
+                        if key not in summary_data:
+                            summary_data[key] = [] if key == "symptoms" else "---"
+                    return summary_data
+                except json.JSONDecodeError as je:
+                    print(f"⚠️ JSON Parse Error: {je}")
+                    # Fallback to cleaning if regex-extracted content is still messy
+                    text = text.replace('```json', '').replace('```', '').strip()
+                    summary_data = json.loads(text)
+                    return summary_data
+            else:
+                raise Exception("No JSON found in model response.")
         else:
             raise Exception("Gemini returned an empty or invalid response.")
         
@@ -359,7 +387,7 @@ async def scan_prescription(request: dict):
                 else:
                     name_parts.append(part)
             
-            name = " ".join(name_parts).strip()
+            name: str = " ".join(name_parts).strip()
             
             # Basic validation
             if len(name) > 2 and not name.isdigit():
@@ -367,7 +395,7 @@ async def scan_prescription(request: dict):
                     "name": name,
                     "dosage": dosage,
                     "qty": qty,
-                    "code": name[:2].upper(),
+                    "code": name[0:2].upper(),  # type: ignore
                     "color": "bg-blue-500"
                 })
 

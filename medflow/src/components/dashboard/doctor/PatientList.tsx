@@ -93,7 +93,7 @@ export default function PatientList({ onStartSession }: { onStartSession: (apt: 
             const snap = await getDocs(q);
             
             // Only seed if our specific test data is missing
-            const hasNewData = snap.docs.some(d => d.data().patientName === "David Miller");
+            const hasNewData = snap.docs.some(d => d.data().patientName === "Test Patient (Voice)");
             if (hasNewData) return;
 
             const today = new Date();
@@ -102,14 +102,15 @@ export default function PatientList({ onStartSession }: { onStartSession: (apt: 
             const dayAfter = new Date(today); dayAfter.setDate(today.getDate() + 2);
 
             const demos = [
-                { patientName: "Rahul Sharma", patientEmail: "rahul@demo.com", patientAge: 45, patientGender: "Male", condition: "Chronic Hypertension", notes: "Experiencing headaches and dizziness for the past week.", requestedDate: fmt(today), requestedTime: "10:30", status: "pending" },
+                { patientName: "Rahul Sharma", patientEmail: "rahul@demo.com", patientAge: 45, patientGender: "Male", condition: "Chronic Hypertension", notes: "Experiencing headaches and dizziness for the past week.", requestedDate: fmt(today), requestedTime: "10:30", status: "accepted" },
                 { patientName: "Anjali Gupta", patientEmail: "anjali@demo.com", patientAge: 28, patientGender: "Female", condition: "Routine Checkup", notes: "Annual health screening.", requestedDate: fmt(today), requestedTime: "11:00", status: "accepted" },
-                { patientName: "Vikram Singh", patientEmail: "vikram@demo.com", patientAge: 52, patientGender: "Male", condition: "Post-op Follow-up", notes: "Surgery was 3 weeks ago, sutures need review.", requestedDate: fmt(tomorrow), requestedTime: "09:00", status: "pending" },
-                { patientName: "Sneha Patil", patientEmail: "sneha@demo.com", patientAge: 34, patientGender: "Female", condition: "Dermatitis", notes: "Recurring skin issue.", requestedDate: fmt(dayAfter), requestedTime: "14:00", status: "pending" },
+                { patientName: "Vikram Singh", patientEmail: "vikram@demo.com", patientAge: 52, patientGender: "Male", condition: "Post-op Follow-up", notes: "Surgery was 3 weeks ago, sutures need review.", requestedDate: fmt(tomorrow), requestedTime: "09:00", status: "accepted" },
+                { patientName: "Sneha Patil", patientEmail: "sneha@demo.com", patientAge: 34, patientGender: "Female", condition: "Dermatitis", notes: "Recurring skin issue.", requestedDate: fmt(dayAfter), requestedTime: "14:00", status: "accepted" },
                 { patientName: "Arjun Verma", patientEmail: "arjun@demo.com", patientAge: 61, patientGender: "Male", condition: "Diabetes Management", notes: "HbA1c review and medication adjustment.", requestedDate: fmt(today), requestedTime: "15:30", status: "accepted" },
                 { patientName: "Meera Iyer", patientEmail: "meera@demo.com", patientAge: 42, patientGender: "Female", condition: "Allergic Rhinitis", notes: "Frequent sneezing and congestion.", requestedDate: fmt(today), requestedTime: "16:00", status: "accepted" },
                 { patientName: "David Miller", patientEmail: "david@demo.com", patientAge: 55, patientGender: "Male", condition: "Cardiac Arrhythmia", notes: "Follow-up on recent palpitations.", requestedDate: fmt(tomorrow), requestedTime: "10:00", status: "accepted" },
                 { patientName: "Sarah Wilson", patientEmail: "sarah@demo.com", patientAge: 31, patientGender: "Female", condition: "Migraine Management", notes: "Discussing new medication efficacy.", requestedDate: fmt(today), requestedTime: "17:30", status: "accepted" },
+                { patientName: "Test Patient (Voice)", patientEmail: "voice-test@demo.com", patientAge: 30, patientGender: "Male", condition: "Voice Translation Test", notes: "Testing bi-directional real-time translation.", requestedDate: fmt(today), requestedTime: "12:00", status: "accepted" },
             ];
 
             for (const d of demos) {

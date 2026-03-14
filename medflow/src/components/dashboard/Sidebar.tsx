@@ -36,7 +36,7 @@ export default function Sidebar({
     if (onViewChange) {
       // If we are on a page that uses state-based switching (like DoctorDashboard),
       // and the clicked item is one of the handled views, prevent navigation and switch state instead.
-      const handledViews = ["dashboard", "patients", "appointments", "reports"];
+      const handledViews = ["dashboard", "patients", "appointments", "reports", "profile"];
       if (handledViews.includes(item.id)) {
         e.preventDefault();
         onViewChange(item.id);
@@ -45,7 +45,7 @@ export default function Sidebar({
   };
 
   return (
-    <aside className="w-64 bg-dark-slate-grey-500 text-white min-h-screen flex flex-col m-4 rounded-3xl overflow-hidden shadow-xl shadow-dark-slate-grey-200/20 fixed left-0 top-0 z-50">
+    <aside className="w-64 bg-dark-slate-grey-500 text-white h-full flex flex-col rounded-3xl overflow-hidden shadow-xl shadow-dark-slate-grey-200/20">
       <div className="p-8 flex items-center gap-3">
         <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-deep-teal-500">
           <ShieldPlus className="w-6 h-6" />

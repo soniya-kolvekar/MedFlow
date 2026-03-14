@@ -3,10 +3,8 @@
     "backend"
   ],
   "search_path": [
+    "backend/site-packages",
     "backend/venv/Lib/site-packages",
     "backend"
-  ],
-  "exclude": [
-    "backend/venv/.*"
   ]
 }

@@ -43,6 +43,7 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
         diagnosis: "",
         notes: ""
     });
+    const [isSummarizing, setIsSummarizing] = useState(false);
     const [duration, setDuration] = useState(0);
     const audioContextRef = useRef<AudioContext | null>(null);
     const processorRef = useRef<ScriptProcessorNode | null>(null);
@@ -73,9 +74,10 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
     const updateSummary = async (newMessages: TranscriptMessage[]) => {
         if (newMessages.length < 2) return;
         
+        setIsSummarizing(true);
         try {
             const transcript = newMessages.map(m => `${m.role}: ${m.text}`).join("\n");
-            const backendUrl = process.env.NEXT_PUBLIC_API_URL || "https://medflow-3.onrender.com";
+            const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
             
             const response = await fetch(`${backendUrl}/api/summarize`, {
                 method: 'POST',
@@ -85,10 +87,16 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
             
             if (response.ok) {
                 const summary = await response.json();
-                setAiSummary(summary);
+                setAiSummary({
+                    symptoms: Array.isArray(summary.symptoms) ? summary.symptoms : [],
+                    diagnosis: summary.diagnosis || "---",
+                    notes: summary.notes || "Awaiting clinical information..."
+                });
             }
         } catch (error) {
             console.error("Summary fetch error:", error);
+        } finally {
+            setIsSummarizing(false);
         }
     };
 
@@ -475,7 +483,11 @@ export default function ClinicalTranscription({ sessionId = "demo-session-123" }
                 <div className="w-72 shrink-0 bg-ash-grey-900/40 rounded-[1.5rem] p-6 border border-ash-grey-800 flex flex-col gap-6 overflow-hidden">
                     <div className="flex items-center gap-2 px-1">
                         <h4 className="text-[11px] font-black text-dark-slate-grey-500 uppercase tracking-widest flex-1">Clinical Summary</h4>
-                        <span className={`w-2 h-2 rounded-full ${isRecording ? 'bg-green-500' : 'bg-ash-grey-600'}`} />
+                        {isSummarizing ? (
+                            <div className="h-3 w-3 border-2 border-deep-teal-500/20 border-t-deep-teal-600 rounded-full animate-spin" />
+                        ) : (
+                            <span className={`w-2 h-2 rounded-full ${isRecording ? 'bg-green-500' : 'bg-ash-grey-600'}`} />
+                        )}
                     </div>
 
                     <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6">
