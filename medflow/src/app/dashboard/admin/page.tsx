@@ -59,7 +59,7 @@ export default function AdminDashboard() {
 
     // ─── Real-time system activity log (merges reports + notifications + patients) ───────
     const reportsUnsub = onSnapshot(
-      query(collection(db, 'reports'), orderBy('uploadedAt', 'desc'), limit(10)),
+      query(collection(db, 'reports'), limit(20)),
       (snap) => {
         snap.docChanges().forEach((change) => {
           if (change.type === 'added' && !isFirstLogs.current) {
@@ -74,7 +74,7 @@ export default function AdminDashboard() {
     );
 
     const notifUnsub = onSnapshot(
-      query(collection(db, 'notifications'), orderBy('createdAt', 'desc'), limit(10)),
+      query(collection(db, 'notifications'), limit(20)),
       (snap) => {
         snap.docChanges().forEach((change) => {
           if (change.type === 'added' && !isFirstLogs.current) {
@@ -89,7 +89,7 @@ export default function AdminDashboard() {
 
     // Also track new patients (e.g. "Elena Rodriguez registered")
     const patientsUnsub = onSnapshot(
-      query(collection(db, 'patients'), orderBy('lastUpdated', 'desc'), limit(10)),
+      query(collection(db, 'patients'), limit(20)),
       (snap) => {
         snap.docChanges().forEach((change) => {
           if (change.type === 'added' && !isFirstLogs.current) {

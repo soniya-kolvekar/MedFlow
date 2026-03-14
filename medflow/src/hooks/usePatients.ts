@@ -23,6 +23,8 @@ export interface Patient {
   createdAt?: string;
   items?: PrescriptionItem[];
   priority?: 'Normal' | 'Urgent';
+  prescriptionUrl?: string;
+  processed?: boolean;
 }
 
 export const usePatients = () => {

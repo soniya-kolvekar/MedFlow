@@ -16,6 +16,10 @@ interface AuthContextType {
   user: User | null;
   role: string | null;
   patientId: string | null;
+  testPatientId: string | null;
+  setTestPatientId: (id: string | null) => void;
+  language: string;
+  setLanguage: (lang: string) => void;
   loading: boolean;
   logout: () => Promise<void>;
   updateRoleInCookie: (newRole: string) => void;
@@ -25,6 +29,10 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   role: null,
   patientId: null,
+  testPatientId: null,
+  setTestPatientId: () => { },
+  language: 'English',
+  setLanguage: () => { },
   loading: true,
   logout: async () => { },
   updateRoleInCookie: () => { },
@@ -34,6 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [patientId, setPatientId] = useState<string | null>(null);
+  const [testPatientId, setTestPatientId] = useState<string | null>(null);
+  const [language, setLanguage] = useState('English');
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -93,7 +103,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, patientId, loading, logout, updateRoleInCookie }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      role, 
+      patientId, 
+      testPatientId,
+      setTestPatientId,
+      language,
+      setLanguage,
+      loading, 
+      logout, 
+      updateRoleInCookie 
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -11,6 +11,7 @@ const patientsData = [
     status: 'In-session', 
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=SarahJ',
     priority: 'Normal',
+    prescriptionUrl: 'https://res.cloudinary.com/dicrbq5aa/image/upload/v1741899123/sample_prescription.jpg',
     items: [
       { name: 'Lisinopril 10mg', dosage: '1 tab daily', status: 'In Stock', qty: '30 units', color: 'bg-deep-teal-500', code: 'Lp' },
       { name: 'Amoxicillin 500mg', dosage: '2 tabs daily', status: 'In Stock', qty: '14 units', color: 'bg-deep-teal-500', code: 'Am' }
@@ -62,6 +63,9 @@ const inventoryData = [
   { name: 'Lisinopril', category: 'ACE Inhibitor', stock: 42, threshold: 50, status: 'Low Stock', price: 8.20 },
   { name: 'Atorvastatin', category: 'Statin', stock: 8, threshold: 20, status: 'Critical', price: 15.00 },
   { name: 'Metformin', category: 'Antidiabetic', stock: 215, threshold: 100, status: 'Available', price: 5.40 },
+  { name: 'Aspirin', category: 'Analgesic', stock: 150, threshold: 50, status: 'Available', price: 2.50 },
+  { name: 'Sumatriptan', category: 'Migraine', stock: 25, threshold: 10, status: 'Available', price: 18.00 },
+  { name: 'Ibuprofen', category: 'NSAID', stock: 80, threshold: 20, status: 'Available', price: 4.50 },
 ];
 
 const reportsData = [

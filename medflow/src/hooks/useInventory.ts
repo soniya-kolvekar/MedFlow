@@ -3,6 +3,7 @@ import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 export interface InventoryItem {
+  id: string;
   name: string;
   category: string;
   stock: number;
@@ -22,7 +23,7 @@ export const useInventory = () => {
       const itemList: InventoryItem[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data() as Omit<InventoryItem, 'id'>;
-        itemList.push({ ...data, id: doc.id } as unknown as InventoryItem);
+        itemList.push({ ...data, id: doc.id } as InventoryItem);
       });
       setInventory(itemList);
       setLoading(false);
