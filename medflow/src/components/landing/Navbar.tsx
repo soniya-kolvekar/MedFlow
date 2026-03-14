@@ -4,7 +4,7 @@ import { ShieldPlus, Search, Bell, Settings, User } from "lucide-react";
 export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 w-full bg-ash-grey-900/90 backdrop-blur-md border-b border-ash-grey-700">
-      <div className="container mx-auto px-4 md:px-8 flex h-[72px] items-center justify-between">
+      <div className="max-w-7xl mx-auto px-6 lg:px-12 flex h-[72px] items-center justify-between">
         {/* Left Side: Logo & Links */}
         <div className="flex items-center gap-10">
           <Link href="/" className="flex items-center gap-2">

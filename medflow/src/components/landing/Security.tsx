@@ -17,7 +17,7 @@ export default function Security() {
           backgroundSize: "32px 32px",
         }}
       ></div>
-      <div className="container relative z-10 mx-auto px-4 md:px-6 text-center">
+      <div className="max-w-7xl relative z-10 mx-auto px-6 lg:px-12 text-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           whileInView={{ opacity: 1, scale: 1 }}

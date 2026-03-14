@@ -12,8 +12,8 @@ export default function Hero() {
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-muted-teal-800/20 rounded-full blur-[100px] translate-x-1/3 -translate-y-1/4 pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-deep-teal-900/50 rounded-full blur-[80px] -translate-x-1/2 translate-y-1/4 pointer-events-none" />
 
-      <div className="container relative z-10 mx-auto px-4 md:px-8">
-        <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
+      <div className="max-w-7xl relative z-10 mx-auto px-6 lg:px-12">
+        <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
           {/* Left Text Column */}
           <div className="lg:w-1/2 flex flex-col items-start">
             <motion.div

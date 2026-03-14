@@ -36,7 +36,7 @@ const steps = [
 export default function HowItWorks() {
   return (
     <section id="how-it-works" className="py-24 bg-ash-grey-900">
-      <div className="container mx-auto px-4 md:px-8">
+      <div className="max-w-7xl mx-auto px-6 lg:px-12">
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-8">
           <div className="max-w-xl">
             <h2 className="mb-4 text-3xl font-bold tracking-tight text-dark-slate-grey-500 md:text-3xl">

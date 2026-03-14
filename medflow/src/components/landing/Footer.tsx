@@ -4,7 +4,7 @@ import { ShieldPlus } from "lucide-react";
 export default function Footer() {
   return (
     <footer className="bg-ash-grey-900 pt-16 pb-8 border-t border-ash-grey-700">
-      <div className="container mx-auto px-4 md:px-8">
+      <div className="max-w-7xl mx-auto px-6 lg:px-12">
         <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-5 mb-16">
           <div className="lg:col-span-2">
             <Link href="/" className="mb-6 flex items-center gap-2 w-max">

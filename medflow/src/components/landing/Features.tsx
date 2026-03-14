@@ -6,7 +6,7 @@ import { ShieldCheck, FileText, Workflow } from "lucide-react";
 export default function Features() {
   return (
     <section id="features" className="bg-ash-grey-900 py-24">
-      <div className="container mx-auto px-4 md:px-8">
+      <div className="max-w-7xl mx-auto px-6 lg:px-12">
         <div className="mb-16 text-center">
           <h2 className="mb-4 text-3xl font-bold tracking-tight text-dark-slate-grey-500 md:text-4xl">
             Clinical Intelligence Suite
